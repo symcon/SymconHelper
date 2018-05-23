@@ -64,7 +64,7 @@ trait HelperColorDevice
 
         $newRed = 0;
         $newGreen = 0;
-        $newGreen = 0;
+        $newBlue = 0;
 
         if ($previousBrightness != 0) {
             $newRed = intval($red * ($brightness / $previousBrightness));
