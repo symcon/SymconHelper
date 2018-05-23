@@ -103,6 +103,16 @@ trait HelperColorDevice
             return 'Action required';
         }
 
+        if ($targetVariable['VariableCustomProfile'] != '') {
+            $profileName = $targetVariable['VariableCustomProfile'];
+        } else {
+            $profileName = $targetVariable['VariableProfile'];
+        }
+
+        if ($profileName != '~HexColor') {
+            return '~HexColor profile required';
+        }
+
         return 'OK';
     }
 
