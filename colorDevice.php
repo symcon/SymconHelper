@@ -81,6 +81,11 @@ trait HelperColorDevice
         return self::rgbToHex($newRed, $newGreen, $newBlue);
     }
 
+    private static function setColorBrightness($variableID, $brightness)
+    {
+        return self::colorDevice($variableID, self::computeColorBrightness($variableID, $brightness));
+    }
+
     private static function getColorCompatibility($variableID)
     {
         if (!IPS_VariableExists($variableID)) {
