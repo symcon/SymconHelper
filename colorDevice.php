@@ -35,7 +35,7 @@ trait HelperColorDevice
         return (floatval($maxColor) / 255.0) * 100;
     }
 
-    private static function setColorBrightness($variableID, $brightness)
+    private static function computeColorBrightness($variableID, $brightness)
     {
         if (!IPS_VariableExists($variableID)) {
             return false;
@@ -78,7 +78,7 @@ trait HelperColorDevice
             $newBlue = $newRed;
         }
 
-        return self::colorDevice($variableID, self::rgbToHex($newRed, $newGreen, $newBlue));
+        return self::rgbToHex($newRed, $newGreen, $newBlue);
     }
 
     private static function getColorCompatibility($variableID)
