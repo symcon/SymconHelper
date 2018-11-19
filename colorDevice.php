@@ -216,12 +216,14 @@ trait HelperColorDevice
                     break;
             }
 
+            $hue /= 6;
+
             if ($hue < 0) {
                 $hue += 1;
             }
         }
         return [
-            'hue'        => $hue * 60,
+            'hue'        => $hue * 360,
             'saturation' => $saturation,
             'brightness' => $brightness
         ];
