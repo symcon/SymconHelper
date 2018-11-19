@@ -12,16 +12,6 @@ trait HelperSetDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        if ($targetVariable['VariableCustomProfile'] != '') {
-            $profileName = $targetVariable['VariableCustomProfile'];
-        } else {
-            $profileName = $targetVariable['VariableProfile'];
-        }
-
-        if (!IPS_VariableProfileExists($profileName)) {
-            return false;
-        }
-
         if ($targetVariable['VariableCustomAction'] != 0) {
             $profileAction = $targetVariable['VariableCustomAction'];
         } else {
