@@ -21,8 +21,10 @@ trait HelperColorDevice
             return 0;
         }
 
-        $rgbValue = GetValueInteger($variableID);
+        return self::getColorBrightnessByValue(GetValueInteger($variableID));
+    }
 
+    private static function getColorBrightnessByValue($rgbValue) {
         if (($rgbValue < 0) || ($rgbValue > 0xFFFFFF)) {
             return 0;
         }
