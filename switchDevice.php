@@ -16,7 +16,7 @@ trait HelperSwitchDevice
             return 'Bool required';
         }
 
-        if ($targetVariable['VariableCustomAction'] != '') {
+        if ($targetVariable['VariableCustomAction'] != 0) {
             $profileAction = $targetVariable['VariableCustomAction'];
         } else {
             $profileAction = $targetVariable['VariableAction'];
