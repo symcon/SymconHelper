@@ -1,8 +1,8 @@
 <?php
 
 declare(strict_types=1);
-define("OPEN", 0);
-define("CLOSE", 4);
+define('OPEN', 0);
+define('CLOSE', 4);
 
 trait HelperShutterDevice
 {
@@ -60,7 +60,7 @@ trait HelperShutterDevice
 
         $value = GetValueInteger($variableID);
 
-        return ($value == OPEN);
+        return $value == OPEN;
     }
 
     private static function setShutterOpen($variableID, $value)
