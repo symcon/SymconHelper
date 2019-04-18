@@ -37,10 +37,10 @@ trait HelperShutterDevice
         switch ($profileName) {
             case '~ShutterMoveStop':
             case '~ShutterMoveStep':
-                return '~ShutterMoveStop profile required';
+                break;
 
             default:
-                break;
+                return '~ShutterMoveStop profile required';
         }
 
         return 'OK';
