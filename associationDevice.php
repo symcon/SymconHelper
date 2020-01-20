@@ -16,7 +16,7 @@ trait HelperAssociationDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        if ($targetVariable['VariableType'] != 1 /* Integer */ ) {
+        if ($targetVariable['VariableType'] != 1 /* Integer */) {
             return 'Int required';
         }
 
@@ -70,11 +70,13 @@ trait HelperAssociationDevice
         return 'OK';
     }
 
-    private static function getAssociationNumber($variableID) {
+    private static function getAssociationNumber($variableID)
+    {
         return self::getNumberValue($variableID);
     }
 
-    private static function getAssociationString($variableID) {
+    private static function getAssociationString($variableID)
+    {
         if (!IPS_VariableExists($variableID)) {
             return false;
         }
@@ -82,12 +84,13 @@ trait HelperAssociationDevice
         return GetValueFormatted($variableID);
     }
 
-    private static function setAssociationNumber($variableID, $value) {
+    private static function setAssociationNumber($variableID, $value)
+    {
         return self::setNumberValue($variableID, $value);
     }
 
-    private static function setAssociationString($variableID, $value) {
-
+    private static function setAssociationString($variableID, $value)
+    {
         if (!IPS_VariableExists($variableID)) {
             return false;
         }
@@ -116,7 +119,8 @@ trait HelperAssociationDevice
         return false;
     }
 
-    private static function isValidAssociation($variableID, $value, $field) {
+    private static function isValidAssociation($variableID, $value, $field)
+    {
         if (!IPS_VariableExists($variableID)) {
             return false;
         }
@@ -140,8 +144,7 @@ trait HelperAssociationDevice
                 if (strcasecmp($association[$field], $value)) {
                     return true;
                 }
-            }
-            else {
+            } else {
                 if ($association[$field] == $value) {
                     return true;
                 }
@@ -152,15 +155,18 @@ trait HelperAssociationDevice
         return false;
     }
 
-    private static function isValidAssociationNumber($variableID, $value) {
+    private static function isValidAssociationNumber($variableID, $value)
+    {
         return self::isValidAssociation($variableID, $value, 'Value');
     }
 
-    private static function isValidAssociationString($variableID, $value) {
+    private static function isValidAssociationString($variableID, $value)
+    {
         return self::isValidAssociation($variableID, $value, 'Name');
     }
 
-    private static function incrementAssociation($variableID, $increment) {
+    private static function incrementAssociation($variableID, $increment)
+    {
         if (!IPS_VariableExists($variableID)) {
             return false;
         }

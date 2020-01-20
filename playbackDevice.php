@@ -82,23 +82,28 @@ trait HelperPlaybackDevice
         return true;
     }
 
-    private static function activatePrevious($variableID) {
+    private static function activatePrevious($variableID)
+    {
         return self::activateCommand($variableID, PREVIOUS);
     }
 
-    private static function activatePlay($variableID) {
+    private static function activatePlay($variableID)
+    {
         return self::activateCommand($variableID, PLAY);
     }
 
-    private static function activatePause($variableID) {
+    private static function activatePause($variableID)
+    {
         return self::activateCommand($variableID, PAUSE);
     }
 
-    private static function activateStop($variableID) {
+    private static function activateStop($variableID)
+    {
         return self::activateCommand($variableID, STOP);
     }
 
-    private static function activateNext($variableID) {
+    private static function activateNext($variableID)
+    {
         return self::activateCommand($variableID, NEXT);
     }
 }
