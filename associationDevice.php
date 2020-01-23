@@ -110,8 +110,8 @@ trait HelperAssociationDevice
         $profile = IPS_GetVariableProfile($profileName);
 
         foreach ($profile['Associations'] as $association) {
-            if (strcasecmp($association['Name'], $value)) {
-                return self::setAssociationNumber($variableID, $association['Value']);
+            if (strcasecmp($association['Name'], $value) == 0) {
+                return self::setAssociationNumber($variableID, intval($association['Value']));
             }
         }
 
@@ -141,7 +141,7 @@ trait HelperAssociationDevice
 
         foreach ($profile['Associations'] as $association) {
             if (is_string($association[$field])) {
-                if (strcasecmp($association[$field], $value)) {
+                if (strcasecmp($association[$field], $value) == 0) {
                     return true;
                 }
             } else {
