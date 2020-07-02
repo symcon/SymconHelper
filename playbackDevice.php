@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 define('PREVIOUS', 0);
-define('PLAY', 1);
-define('PAUSE', 2);
-define('STOP', 3);
+define('STOP', 1);
+define('PLAY', 2);
+define('PAUSE', 3);
 define('NEXT', 4);
 
 trait HelperPlaybackDevice
