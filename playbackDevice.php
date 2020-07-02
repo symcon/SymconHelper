@@ -106,4 +106,21 @@ trait HelperPlaybackDevice
     {
         return self::activateCommand($variableID, NEXT);
     }
+
+    private static function supportsPreviousNext($variableID)
+    {
+        if (!IPS_VariableExists($variableID)) {
+            return false;
+        }
+
+        $targetVariable = IPS_GetVariable($variableID);
+
+        if ($targetVariable['VariableCustomProfile'] != '') {
+            $profileName = $targetVariable['VariableCustomProfile'];
+        } else {
+            $profileName = $targetVariable['VariableProfile'];
+        }
+
+        return $profileName === '~PlaybackPreviousNext';
+    }
 }
