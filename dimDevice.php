@@ -61,8 +61,7 @@ trait HelperDimDevice
             return 0;
         }
 
-        $valueToPercent = function ($value) use ($profile)
-        {
+        $valueToPercent = function ($value) use ($profile) {
             return (($value - $profile['MinValue']) / ($profile['MaxValue'] - $profile['MinValue'])) * 100;
         };
 
@@ -115,8 +114,7 @@ trait HelperDimDevice
             return false;
         }
 
-        $percentToValue = function ($value) use ($profile)
-        {
+        $percentToValue = function ($value) use ($profile) {
             return (max(0, min($value, 100)) / 100) * ($profile['MaxValue'] - $profile['MinValue']) + $profile['MinValue'];
         };
 

@@ -234,8 +234,7 @@ trait HelperColorDevice
 
     private static function hsbToRGB($hsbValue)
     {
-        $prepareValue = function ($value)
-        {
+        $prepareValue = function ($value) {
             return intval($value * 255 + 0.5);
         };
 
