@@ -8,10 +8,10 @@ class CommonRegistry
     const propertyPrefix = 'Device';
     const deviceSearchPrefix = 'FoundDevice';
 
-    private static $supportedDeviceTypes = [];
+    protected static $supportedDeviceTypes = [];
+    protected $instanceID = 0;
 
     private $registerProperty = null;
-    private $instanceID = 0;
     private $deviceTypePrefix = '';
 
     public function __construct(int $instanceID, callable $registerProperty, string $deviceTypePrefix)
