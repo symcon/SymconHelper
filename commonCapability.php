@@ -15,13 +15,13 @@ abstract class CommonCapability
     public function getDetectedVariables($instanceID)
     {
         // Does the capability support automatic detection?
-        $supportedProfiles = $this->getSupportedProfiles();
-        if (!$supportedProfiles) {
+        $supportedProfileList = $this->getSupportedProfiles();
+        if (!$supportedProfileList) {
             return false;
         }
 
         $result = [];
-        foreach ($supportedProfiles as $name => $supportedProfile) {
+        foreach ($supportedProfileList as $name => $supportedProfiles) {
             $result[$name] = false;
         }
 
@@ -38,8 +38,8 @@ abstract class CommonCapability
                 $profileName = $targetVariable['VariableProfile'];
             }
 
-            foreach ($supportedProfiles as $name => $supportedProfile) {
-                if ($profileName === $supportedProfile) {
+            foreach ($supportedProfileList as $name => $supportedProfiles) {
+                if (in_array($profileName, $supportedProfiles)) {
                     if ($result[$name] === false) {
                         $result[$name] = $variableID;
                     }
