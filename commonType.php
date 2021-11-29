@@ -6,6 +6,8 @@ abstract class CommonType
 {
     protected $instanceID = 0;
     protected $implementedCapabilities = [];
+    protected $detectionRequiredCapabilities = null;
+    protected $detectionMinimumCapabilities = 0;
     protected $capabilityPrefix = '';
 
     protected $displayStatusPrefix = false;
@@ -74,21 +76,28 @@ abstract class CommonType
 
     public function getDetectedDevices()
     {
+        if ($this->isExpertDevice()) {
+            return [];
+        }
+        $requiredCapabilities = ($this->detectionRequiredCapabilities !== null) ? $this->detectionRequiredCapabilities : $this->implementedCapabilities;
         $result = [];
         foreach (IPS_GetInstanceList() as $instanceID) {
             $instanceResult = [];
+            $detectedCapabilities = 0;
             foreach ($this->implementedCapabilities as $capability) {
                 $detectedVariables = $this->generateCapabilityObject($capability)->getDetectedVariables($instanceID);
-                if ($detectedVariables === false) {
+                if ($detectedVariables !== false) {
+                    $detectedCapabilities++;
+                    foreach ($detectedVariables as $name => $value) {
+                        $instanceResult[$name] = $value;
+                    }
+                } elseif (in_array($capability, $requiredCapabilities)) {
                     $instanceResult = false;
                     break;
                 }
-                foreach ($detectedVariables as $name => $value) {
-                    $instanceResult[$name] = $value;
-                }
             }
 
-            if ($instanceResult !== false) {
+            if (($instanceResult !== false) && ($detectedCapabilities >= $this->detectionMinimumCapabilities)) {
                 $result[$instanceID] = $instanceResult;
             }
         }

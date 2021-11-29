@@ -98,10 +98,6 @@ class CommonRegistry
         foreach ($this->getSortedDeviceTypes() as $deviceType) {
             $deviceTypeObject = $this->generateDeviceTypeObject($deviceType);
             $detectedDevices = $deviceTypeObject->getDetectedDevices();
-            // Treat expert devices as empty list
-            if ($deviceTypeObject->isExpertDevice()) {
-                $detectedDevices = [];
-            }
 
             $variableNamesExisting[] = '$' . self::propertyPrefix . $deviceType;
             $variableNamesNew[] = '$' . self::deviceSearchPrefix . $deviceType;
@@ -181,7 +177,7 @@ class CommonRegistry
                 ],
                 'values'   => $treeValues,
                 'rowCount' => max(min(count($treeValues), 10), 1),
-                'visible'  => count($detectedDevices) > 0
+                'visible'  => count($treeValues) > 0
             ];
         }
 
