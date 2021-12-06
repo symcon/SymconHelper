@@ -73,7 +73,7 @@ class CommonRegistry
         $variableNamesNew = [];
 
         $translations = $this->getTranslations();
-        $language = 'de'; // TODO: Use System Language once available via function
+        $language = explode('_', IPS_GetSystemLanguage())[0];
         $translate = function ($text) use ($translations, $language)
         {
             if (isset($translations[$language][$text])) {
