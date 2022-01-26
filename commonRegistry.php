@@ -95,6 +95,8 @@ class CommonRegistry
             }
         }
 
+        $devicesFound = false;
+
         foreach ($this->getSortedDeviceTypes() as $deviceType) {
             $deviceTypeObject = $this->generateDeviceTypeObject($deviceType);
             $detectedDevices = $deviceTypeObject->getDetectedDevices();
@@ -179,10 +181,14 @@ class CommonRegistry
                 'rowCount' => max(min(count($treeValues), 10), 1),
                 'visible'  => count($treeValues) > 0
             ];
+
+            if (count($treeValues) > 0) {
+                $devicesFound = true;
+            }
         }
 
         $updateFormField('DeviceSearchProgress', 'visible', false);
-        if (count($deviceTrees) === 0) {
+        if (!$devicesFound) {
             $updateFormField('DeviceSearchNoneFoundLabel', 'visible', true);
         } else {
             $updateFormField('DeviceSearchColumn', 'items', json_encode($deviceTrees));
@@ -383,7 +389,8 @@ class CommonRegistry
                 'Add Devices'                                                                                                                          => 'Geräte hinzufügen',
                 'Searching for devices...'                                                                                                             => 'Suche nach Geräten läuft...',
                 'Register'                                                                                                                             => 'Registrieren',
-                'Object'                                                                                                                               => 'Objekt'
+                'Object'                                                                                                                               => 'Objekt',
+                'No devices found, devices that are already registered with Alexa are not found again'                                                 => 'Keine Geräte gefunden. Geräte, die bereits mit Alexa registriert wurden, werden nicht erneut gefunden.'
             ]
         ];
 
