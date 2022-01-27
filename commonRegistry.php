@@ -135,7 +135,8 @@ class CommonRegistry
                         'editable' => false
                     ];
                 }
-                if (!$variableAlreadyUsed) {
+
+                if (!$variableAlreadyUsed && (json_encode($newValues) != '')) {
                     $treeValues = array_merge($treeValues, $newValues);
                 }
             }
