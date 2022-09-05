@@ -295,7 +295,7 @@ class CommonRegistry
             $form[] = [
                 'type'    => 'Button',
                 'caption' => 'Repair IDs',
-                'onClick' => $prefix .'_UIRepairIDs($id, [ ' . implode(', ', $variableNames) . ' ]);'
+                'onClick' => $prefix . '_UIRepairIDs($id, [ ' . implode(', ', $variableNames) . ' ]);'
             ];
         }
 

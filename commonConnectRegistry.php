@@ -9,7 +9,7 @@ class CommonConnectRegistry extends CommonRegistry
     public function getTranslations(): array
     {
         $translations = parent::getTranslations();
-        $translations['de']['Symcon Connect is not active!'] =  'Symcon Connect ist nicht aktiv!';
+        $translations['de']['Symcon Connect is not active!'] = 'Symcon Connect ist nicht aktiv!';
         $translations['de']['Symcon Connect is OK!'] = 'Symcon Connect ist OK!';
 
         return $translations;
@@ -18,7 +18,7 @@ class CommonConnectRegistry extends CommonRegistry
     public function getStatus()
     {
         $status = parent::getStatus();
-        
+
         if ($status !== 102) {
             return $status;
         }
