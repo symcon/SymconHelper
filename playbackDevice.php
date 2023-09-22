@@ -21,7 +21,7 @@ trait HelperPlaybackDevice
             return 'Integer required';
         }
 
-        if ($targetVariable['VariableCustomAction'] != '') {
+        if ($targetVariable['VariableCustomAction'] !== 0) {
             $profileAction = $targetVariable['VariableCustomAction'];
         } else {
             $profileAction = $targetVariable['VariableAction'];
