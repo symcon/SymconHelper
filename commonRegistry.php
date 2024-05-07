@@ -355,7 +355,7 @@ class CommonRegistry
                 'items'   => [[
                     'type'     => 'List',
                     'name'     => self::propertyPrefix . $deviceType,
-                    'rowCount' => 5,
+                    'rowCount' => 10,
                     'add'      => true,
                     'delete'   => true,
                     'sort'     => [
