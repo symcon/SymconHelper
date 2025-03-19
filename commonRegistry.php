@@ -87,7 +87,7 @@ class CommonRegistry
         foreach ($listValues as $listData) {
             foreach ($listData as $listEntry) {
                 foreach ($listEntry as $parameterValue) {
-                    // IDs are not trigered here as they are numeric strings
+                    // IDs are not triggered here as they are numeric strings
                     if (is_int($parameterValue)) {
                         $usedVariables[] = $parameterValue;
                     }
@@ -100,7 +100,6 @@ class CommonRegistry
         foreach ($this->getSortedDeviceTypes() as $deviceType) {
             $deviceTypeObject = $this->generateDeviceTypeObject($deviceType);
             $detectedDevices = $deviceTypeObject->getDetectedDevices();
-
             $variableNamesExisting[] = '$' . self::propertyPrefix . $deviceType;
             $variableNamesNew[] = '$' . self::deviceSearchPrefix . $deviceType;
             $columns = $deviceTypeObject->getColumns();

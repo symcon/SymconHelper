@@ -16,6 +16,11 @@ trait HelperDimDevice
             return 'Int/Float required';
         }
 
+        $presentation = IPS_GetVariablePresentation($variableID);
+        if ($presentation['PRESENTATION'] == VARIABLE_PRESENTATION_SLIDER) {
+            return 'OK';
+        }
+
         if ($targetVariable['VariableCustomProfile'] != '') {
             $profileName = $targetVariable['VariableCustomProfile'];
         } else {
@@ -49,24 +54,45 @@ trait HelperDimDevice
     {
         $targetVariable = IPS_GetVariable($variableID);
 
+        $presentation = IPS_GetVariablePresentation($variableID);
+        if (empty($presentation)) {
+            return 0;
+        }
+        $profileName = '';
+        switch ($presentation['PRESENTATION']) {
+            case VARIABLE_PRESENTATION_LEGACY:
+                $profileName = $presentation['PROFILE'];
+                if (!IPS_VariableProfileExists($profileName)) {
+                    return 0;
+                }
+
+                $profile = IPS_GetVariableProfile($profileName);
+
+                $minValue = $profile['MinValue'];
+                $maxValue = $profile['MaxValue'];
+                break;
+
+            case VARIABLE_PRESENTATION_SLIDER:
+                $minValue = $presentation['MIN'];
+                $maxValue = $presentation['MAX'];
+                break;
+
+            default:
+                return false;
+
+        }
+
         if ($targetVariable['VariableCustomProfile'] != '') {
             $profileName = $targetVariable['VariableCustomProfile'];
         } else {
             $profileName = $targetVariable['VariableProfile'];
         }
 
-        $profile = IPS_GetVariableProfile($profileName);
-
-        if (($profile['MaxValue'] - $profile['MinValue']) <= 0) {
+        if (($maxValue - $minValue) <= 0) {
             return 0;
         }
 
-        $valueToPercent = function ($value) use ($profile)
-        {
-            return (($value - $profile['MinValue']) / ($profile['MaxValue'] - $profile['MinValue'])) * 100;
-        };
-
-        $value = $valueToPercent(GetValue($variableID));
+        $value = ((GetValue($variableID) - $minValue) / ($maxValue - $minValue)) * 100;
 
         // Revert value for reversed profile
         if (preg_match('/\.Reversed$/', $profileName)) {
@@ -79,7 +105,7 @@ trait HelperDimDevice
     private static function dimDevice($variableID, $value)
     {
         $absoluteValue = self::percentToAbsolute($variableID, $value);
-        
+
         if ($absoluteValue === false) {
             return false;
         }
@@ -123,27 +149,43 @@ trait HelperDimDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        if ($targetVariable['VariableCustomProfile'] != '') {
-            $profileName = $targetVariable['VariableCustomProfile'];
-        } else {
-            $profileName = $targetVariable['VariableProfile'];
-        }
-
-        if (!IPS_VariableProfileExists($profileName)) {
+        $presentation = IPS_GetVariablePresentation($variableID);
+        if (empty($presentation)) {
             return false;
         }
 
-        // Revert value for reversed profile
-        if (preg_match('/\.Reversed$/', $profileName)) {
-            $value = 100 - $value;
+        switch ($presentation['PRESENTATION']) {
+            case VARIABLE_PRESENTATION_LEGACY:
+                $profileName = $presentation['PROFILE'];
+                if (!IPS_VariableProfileExists($profileName)) {
+                    return false;
+                }
+
+                // Revert value for reversed profile
+                if (preg_match('/\.Reversed$/', $profileName)) {
+                    $value = 100 - $value;
+                }
+
+                $profile = IPS_GetVariableProfile($profileName);
+
+                $minValue = $profile['MinValue'];
+                $maxValue = $profile['MaxValue'];
+                break;
+
+            case VARIABLE_PRESENTATION_SLIDER:
+                $minValue = $presentation['MIN'];
+                $maxValue = $presentation['MAX'];
+                break;
+
+            default:
+                return false;
+
         }
 
-        $profile = IPS_GetVariableProfile($profileName);
-
-        if (($profile['MaxValue'] - $profile['MinValue']) <= 0) {
+        if (($maxValue - $minValue) <= 0) {
             return false;
         }
 
-        return (max(0, min($value, 100)) / 100) * ($profile['MaxValue'] - $profile['MinValue']) + $profile['MinValue'];
+        return (max(0, min($value, 100)) / 100) * ($maxValue - $minValue) + $minValue;
     }
 }

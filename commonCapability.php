@@ -19,8 +19,13 @@ abstract class CommonCapability
             return false;
         }
 
+        $supportedPresentationList = $this->getSupportedPresentations();
+        if (!$supportedPresentationList) {
+            return false;
+        }
+
         $result = [];
-        foreach ($supportedProfileList as $name => $supportedProfiles) {
+        foreach ($supportedPresentationList as $name => $supportedPresentations) {
             $result[$name] = false;
         }
 
@@ -30,23 +35,43 @@ abstract class CommonCapability
             }
 
             $targetVariable = IPS_GetVariable($variableID);
+            $presentation = IPS_GetVariablePresentation($variableID);
             $profileName = '';
             if ($targetVariable['VariableCustomProfile'] != '') {
                 $profileName = $targetVariable['VariableCustomProfile'];
             } else {
                 $profileName = $targetVariable['VariableProfile'];
-            }
 
-            foreach ($supportedProfileList as $name => $supportedProfiles) {
-                if (in_array($profileName, $supportedProfiles)) {
-                    if ($result[$name] === false) {
-                        $result[$name] = $variableID;
+            }
+            foreach ($supportedPresentationList as $name => $supportedPresentations) {
+                // We check if our variable has one  of the supported presentations
+                if (array_key_exists($presentation['PRESENTATION'], $supportedPresentations)) {
+                    $supported = true;
+                    // We check all parameters that are defined in the supported presentation
+                    foreach ($supportedPresentations[$presentation['PRESENTATION']] as $parameter => $value) {
+                        // If it is an array if the value is in the array
+                        if (is_array($value)) {
+                            if (!in_array($presentation[$parameter], $value)) {
+                                $supported = false;
+                                break;
+                            }
+                        } else {
+                            if ($presentation[$parameter] != $value) {
+                                $supported = false;
+                                break;
+                            }
+                        }
                     }
-                    // If there is more than one supported variable, we do not detect the instance as supported due to ambiguous use
-                    else {
-                        return false;
+                    if ($supported) {
+                        // If there is more than one supported variable, we do not detect the instance as supported due to ambiguous use
+                        if ($result[$name] === false) {
+                            $result[$name] = $variableID;
+                        } else {
+                            return false;
+                        }
+                    } else {
+                        break;
                     }
-                    break;
                 }
             }
         }
