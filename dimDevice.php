@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 trait HelperDimDevice
 {
-    private static function getDimCompatibility($variableID)
+    private static function getDimCompatibility($variableID, $requireAction = true)
     {
         if (!IPS_VariableExists($variableID)) {
             return 'Missing';
@@ -17,24 +17,36 @@ trait HelperDimDevice
         }
 
         $presentation = IPS_GetVariablePresentation($variableID);
-        if ($presentation['PRESENTATION'] == VARIABLE_PRESENTATION_SLIDER) {
-            return 'OK';
-        }
 
-        if ($targetVariable['VariableCustomProfile'] != '') {
-            $profileName = $targetVariable['VariableCustomProfile'];
-        } else {
-            $profileName = $targetVariable['VariableProfile'];
-        }
+        switch ($presentation['PRESENTATION']) {
+            case VARIABLE_PRESENTATION_SLIDER:
+            case VARIABLE_PRESENTATION_VALUE_PRESENTATION:
+                if (($presentation['MAX'] - $presentation['MIN']) <= 0) {
+                    return 'Presentation not dimmable';
+                }
+                break;
 
-        if (!IPS_VariableProfileExists($profileName)) {
-            return 'Profile required';
-        }
+            case VARIABLE_PRESENTATION_LEGACY:
+                $profileName = '';
+                if ($targetVariable['VariableCustomProfile'] != '') {
+                    $profileName = $targetVariable['VariableCustomProfile'];
+                } else {
+                    $profileName = $targetVariable['VariableProfile'];
+                }
+        
+                if (!IPS_VariableProfileExists($profileName)) {
+                    return 'Profile required';
+                }
+        
+                $profile = IPS_GetVariableProfile($profileName);
+        
+                if (($profile['MaxValue'] - $profile['MinValue']) <= 0) {
+                    return 'Profile not dimmable';
+                }
+                break;
 
-        $profile = IPS_GetVariableProfile($profileName);
-
-        if (($profile['MaxValue'] - $profile['MinValue']) <= 0) {
-            return 'Profile not dimmable';
+            default:
+                return 'Unsupported presentation';
         }
 
         if ($targetVariable['VariableCustomAction'] != 0) {
@@ -43,7 +55,7 @@ trait HelperDimDevice
             $profileAction = $targetVariable['VariableAction'];
         }
 
-        if (!($profileAction > 10000)) {
+        if ($requireAction && !($profileAction > 10000)) {
             return 'Action required';
         }
 
@@ -73,6 +85,7 @@ trait HelperDimDevice
                 break;
 
             case VARIABLE_PRESENTATION_SLIDER:
+            case VARIABLE_PRESENTATION_VALUE_PRESENTATION:
                 $minValue = $presentation['MIN'];
                 $maxValue = $presentation['MAX'];
                 break;
@@ -173,6 +186,7 @@ trait HelperDimDevice
                 break;
 
             case VARIABLE_PRESENTATION_SLIDER:
+            case VARIABLE_PRESENTATION_VALUE_PRESENTATION:
                 $minValue = $presentation['MIN'];
                 $maxValue = $presentation['MAX'];
                 break;
