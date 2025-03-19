@@ -62,7 +62,7 @@ trait HelperDimDevice
         return 'OK';
     }
 
-    private static function getDimValue($variableID)
+    private static function getDimValue($variableID, $overrides = [])
     {
         $targetVariable = IPS_GetVariable($variableID);
 
@@ -70,7 +70,11 @@ trait HelperDimDevice
         if (empty($presentation)) {
             return 0;
         }
-        $profileName = '';
+        
+        $minValue = 0;
+        $maxValue = 100;
+        $reversed = false;
+        
         switch ($presentation['PRESENTATION']) {
             case VARIABLE_PRESENTATION_LEGACY:
                 $profileName = $presentation['PROFILE'];
@@ -80,26 +84,25 @@ trait HelperDimDevice
 
                 $profile = IPS_GetVariableProfile($profileName);
 
+                $reversed = preg_match('/\.Reversed$/', $profileName);
                 $minValue = $profile['MinValue'];
                 $maxValue = $profile['MaxValue'];
                 break;
 
             case VARIABLE_PRESENTATION_SLIDER:
             case VARIABLE_PRESENTATION_VALUE_PRESENTATION:
+                $reversed = false;
                 $minValue = $presentation['MIN'];
                 $maxValue = $presentation['MAX'];
                 break;
 
             default:
                 return false;
-
         }
 
-        if ($targetVariable['VariableCustomProfile'] != '') {
-            $profileName = $targetVariable['VariableCustomProfile'];
-        } else {
-            $profileName = $targetVariable['VariableProfile'];
-        }
+        $maxValue = $overrides['MAX'] ?? $maxValue;
+        $minValue = $overrides['MIN'] ?? $minValue;
+        $reversed = $overrides['REVERSED'] ?? $reversed;        
 
         if (($maxValue - $minValue) <= 0) {
             return 0;
@@ -108,7 +111,7 @@ trait HelperDimDevice
         $value = ((GetValue($variableID) - $minValue) / ($maxValue - $minValue)) * 100;
 
         // Revert value for reversed profile
-        if (preg_match('/\.Reversed$/', $profileName)) {
+        if ($reversed) {
             $value = 100 - $value;
         }
 
@@ -154,7 +157,7 @@ trait HelperDimDevice
         return true;
     }
 
-    private static function percentToAbsolute($variableID, $value)
+    private static function percentToAbsolute($variableID, $value, $overrides = [])
     {
         if (!IPS_VariableExists($variableID)) {
             return false;
@@ -167,6 +170,10 @@ trait HelperDimDevice
             return false;
         }
 
+        $minValue = 0;
+        $maxValue = 100;
+        $reversed = false;
+
         switch ($presentation['PRESENTATION']) {
             case VARIABLE_PRESENTATION_LEGACY:
                 $profileName = $presentation['PROFILE'];
@@ -175,9 +182,7 @@ trait HelperDimDevice
                 }
 
                 // Revert value for reversed profile
-                if (preg_match('/\.Reversed$/', $profileName)) {
-                    $value = 100 - $value;
-                }
+                $reversed = preg_match('/\.Reversed$/', $profileName);
 
                 $profile = IPS_GetVariableProfile($profileName);
 
@@ -194,6 +199,14 @@ trait HelperDimDevice
             default:
                 return false;
 
+        }
+
+        $maxValue = $overrides['MAX'] ?? $maxValue;
+        $minValue = $overrides['MIN'] ?? $minValue;
+        $reversed = $overrides['REVERSED'] ?? $reversed;
+        
+        if ($reversed) {
+            $value = 100 - $value;
         }
 
         if (($maxValue - $minValue) <= 0) {
