@@ -18,7 +18,7 @@ trait HelperDimDevice
 
         $presentation = IPS_GetVariablePresentation($variableID);
 
-        switch ($presentation['PRESENTATION']) {
+        switch ($presentation['PRESENTATION'] ?? 'Invalid presentation') {
             case VARIABLE_PRESENTATION_SLIDER:
             case VARIABLE_PRESENTATION_VALUE_PRESENTATION:
                 if (($presentation['MAX'] - $presentation['MIN']) <= 0) {
