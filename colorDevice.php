@@ -4,6 +4,43 @@ declare(strict_types=1);
 
 trait HelperColorDevice
 {
+    public static function cmykToHex($c, $m, $y, $k)
+    {
+        $c = max(0, min(100, $c));
+        $m = max(0, min(100, $m));
+        $y = max(0, min(100, $y));
+        $k = max(0, min(100, $k));
+
+        $r = 255 * (1 - $c / 100) * (1 - $k / 100);
+        $g = 255 * (1 - $m / 100) * (1 - $k / 100);
+        $b = 255 * (1 - $y / 100) * (1 - $k / 100);
+
+        $r = round($r);
+        $g = round($g);
+        $b = round($b);
+
+        return self::rgbToHex($r, $g, $b);
+    }
+
+    public static function hslToRGB($h, $s, $l)
+    {
+        $h /= 360; // Normalize hue to 0-1
+
+        if ($s == 0) {
+            $r = $g = $b = $l; // Achromatic (gray)
+        } else {
+            $q = $l < 0.5 ? $l * (1 + $s) : $l + $s - $l * $s;
+            $p = 2 * $l - $q;
+            $r = self::hueToRgb($p, $q, $h + 1 / 3);
+            $g = self::hueToRgb($p, $q, $h);
+            $b = self::hueToRgb($p, $q, $h - 1 / 3);
+        }
+        return self::rgbToHex(
+            round($r * 255),
+            round($g * 255),
+            round($b * 255),
+        );
+    }
     private static function rgbToHex($r, $g, $b)
     {
         return ($r << 16) + ($g << 8) + $b;
@@ -11,17 +48,7 @@ trait HelperColorDevice
 
     private static function getColorBrightness($variableID)
     {
-        if (!IPS_VariableExists($variableID)) {
-            return 0;
-        }
-
-        $targetVariable = IPS_GetVariable($variableID);
-
-        if ($targetVariable['VariableType'] != 1 /* Integer */) {
-            return 0;
-        }
-
-        return self::getColorBrightnessByValue(GetValueInteger($variableID));
+        return self::getColorBrightnessByValue(self::getColorValue($variableID));
     }
 
     private static function getColorBrightnessByValue($rgbValue)
@@ -46,11 +73,33 @@ trait HelperColorDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        if ($targetVariable['VariableType'] != 1 /* Integer */) {
+        $presentation = IPS_GetVariablePresentation($variableID);
+
+        if (empty($presentation)) {
             return false;
         }
 
-        $rgbValue = GetValueInteger($variableID);
+        switch ($presentation['PRESENTATION']) {
+            case VARIABLE_PRESENTATION_LEGACY:
+
+                if ($targetVariable['VariableType'] != VARIABLETYPE_INTEGER) {
+                    return false;
+                }
+
+                $rgbValue = GetValueInteger($variableID);
+                break;
+
+            case VARIABLE_PRESENTATION_COLOR:
+                if ($targetVariable['VariableType'] == VARIABLETYPE_INTEGER) {
+                    $rgbValue = GetValueInteger($variableID);
+                    break;
+                } elseif ($targetVariable['VariableType'] == VARIABLETYPE_STRING) {
+                    $rgbValue = self::encodedStringToRGB(GetValueString($variableID), $presentation['ENCODING']);
+                    break;
+                } else {
+                    return false;
+                }
+        }
 
         if (($rgbValue < 0) || ($rgbValue > 0xFFFFFF)) {
             return false;
@@ -95,30 +144,37 @@ trait HelperColorDevice
             return 'Missing';
         }
 
-        $targetVariable = IPS_GetVariable($variableID);
-
-        if ($targetVariable['VariableType'] != 1 /* Integer */) {
-            return 'Integer required';
-        }
-
-        if ($targetVariable['VariableCustomAction'] != 0) {
-            $profileAction = $targetVariable['VariableCustomAction'];
-        } else {
-            $profileAction = $targetVariable['VariableAction'];
-        }
-
-        if (!($profileAction > 10000)) {
+        if (!HasAction($variableID)) {
             return 'Action required';
         }
 
-        if ($targetVariable['VariableCustomProfile'] != '') {
-            $profileName = $targetVariable['VariableCustomProfile'];
-        } else {
-            $profileName = $targetVariable['VariableProfile'];
+        $presentation = IPS_GetVariablePresentation($variableID);
+
+        if (empty($presentation)) {
+            return 'Presentation required';
         }
 
-        if ($profileName != '~HexColor') {
-            return '~HexColor profile required';
+        $variableType = IPS_GetVariable($variableID)['VariableType'];
+
+        switch ($presentation['PRESENTATION']) {
+            case VARIABLE_PRESENTATION_LEGACY:
+                if ($variableType != VARIABLETYPE_INTEGER) {
+                    return 'Integer required';
+                }
+                if ($presentation['PROFILE'] != '~HexColor') {
+                    return '~HexColor profile required';
+                }
+                break;
+
+            case VARIABLE_PRESENTATION_COLOR:
+                if (!in_array($variableType, [VARIABLETYPE_INTEGER, VARIABLETYPE_STRING])) {
+                    return 'Integer or String required';
+                }
+                break;
+
+            default:
+                return 'Presentation Legacy or Color required';
+
         }
 
         return 'OK';
@@ -132,17 +188,44 @@ trait HelperColorDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        if ($targetVariable['VariableType'] != 1 /* Integer */) {
+        $presentation = IPS_GetVariablePresentation($variableID);
+        if (empty($presentation)) {
             return 0;
         }
 
-        $value = GetValueInteger($variableID);
+        switch ($presentation['PRESENTATION']) {
+            case VARIABLE_PRESENTATION_LEGACY:
+                if ($targetVariable['VariableType'] != VARIABLETYPE_INTEGER) {
+                    return 0;
+                }
 
-        if (($value < 0) || ($value > 0xFFFFFF)) {
-            return 0;
+                $value = GetValueInteger($variableID);
+
+                if (($value < 0) || ($value > 0xFFFFFF)) {
+                    return 0;
+                }
+
+                return $value;
+
+            case VARIABLE_PRESENTATION_COLOR:
+                if ($targetVariable['VariableType'] == VARIABLETYPE_INTEGER) {
+                    $value = GetValueInteger($variableID);
+
+                    if (($value < 0) || ($value > 0xFFFFFF)) {
+                        return 0;
+                    }
+
+                    return $value;
+                } elseif ($targetVariable['VariableType'] == VARIABLETYPE_STRING) {
+                    return self::encodedStringToRGB(GetValueString($variableID), $presentation['ENCODING']);
+                } else {
+                    return 0;
+                }
+
+                // No break. Add additional comment above this line if intentional
+            default:
+                return 0;
         }
-
-        return $value;
     }
 
     private static function colorDevice($variableID, $value)
@@ -151,35 +234,49 @@ trait HelperColorDevice
             return false;
         }
 
+        if (!HasAction($variableID)) {
+            return false;
+        }
+
         $targetVariable = IPS_GetVariable($variableID);
 
-        if ($targetVariable['VariableCustomAction'] != 0) {
-            $profileAction = $targetVariable['VariableCustomAction'];
-        } else {
-            $profileAction = $targetVariable['VariableAction'];
-        }
-
-        if ($profileAction < 10000) {
+        $presentation = IPS_GetVariablePresentation($variableID);
+        if (empty($presentation)) {
             return false;
         }
+        switch ($presentation['PRESENTATION']) {
+            case VARIABLE_PRESENTATION_LEGACY:
+                if ($targetVariable['VariableType'] != VARIABLETYPE_INTEGER) {
+                    return false;
+                }
 
-        if ($targetVariable['VariableType'] != 1 /* Integer */) {
-            return false;
+                if (($value < 0) || ($value > 0xFFFFFF)) {
+                    return false;
+                }
+                break;
+
+            case VARIABLE_PRESENTATION_COLOR:
+                if ($targetVariable['VariableType'] == VARIABLETYPE_INTEGER) {
+                    if (($value < 0) || ($value > 0xFFFFFF)) {
+                        return false;
+                    }
+                    break;
+                }
+                if ($targetVariable['VariableType'] == VARIABLETYPE_STRING) {
+                    $red = ($value >> 16) & 0xFF;
+                    $green = ($value >> 8) & 0xFF;
+                    $blue = $value & 0xFF;
+                    $value = self::rgbToJson($red, $green, $blue, $presentation['ENCODING']);
+                } else {
+                    return false;
+                }
+                break;
+
+            default:
+                return false;
         }
 
-        if (($value < 0) || ($value > 0xFFFFFF)) {
-            return false;
-        }
-
-        if (IPS_InstanceExists($profileAction)) {
-            IPS_RunScriptText('IPS_RequestAction(' . var_export($profileAction, true) . ', ' . var_export(IPS_GetObject($variableID)['ObjectIdent'], true) . ', ' . var_export($value, true) . ');');
-        } elseif (IPS_ScriptExists($profileAction)) {
-            IPS_RunScriptEx($profileAction, ['VARIABLE' => $variableID, 'VALUE' => $value, 'SENDER' => 'VoiceControl']);
-        } else {
-            return false;
-        }
-
-        return true;
+        return RequestActionEx($variableID, $value, 'VoiceControl');
     }
 
     private static function rgbToHSB($rgbValue)
@@ -232,7 +329,7 @@ trait HelperColorDevice
         ];
     }
 
-    private static function hsbToRGB($hsbValue)
+    private static function hsbToRGB($hue, $saturation, $brightness)
     {
         $prepareValue = function ($value)
         {
@@ -240,20 +337,20 @@ trait HelperColorDevice
         };
 
         // Conversion algorithm from http://www.docjar.com/html/api/java/awt/Color.java.html
-        if ($hsbValue['saturation'] == 0.0) {
-            $colorValue = $prepareValue($hsbValue['brightness']);
+        if ($saturation == 0.0) {
+            $colorValue = $prepareValue($brightness);
             return self::rgbToHex($colorValue, $colorValue, $colorValue);
         } else {
-            $huePercentage = $hsbValue['hue'] / 360;
+            $huePercentage = $hue / 360;
             $h = ($huePercentage - floor($huePercentage)) * 6;
             $f = $h - floor($h);
-            $p = $hsbValue['brightness'] * (1 - $hsbValue['saturation']);
-            $q = $hsbValue['brightness'] * (1 - ($hsbValue['saturation'] * $f));
-            $t = $hsbValue['brightness'] * (1 - ($hsbValue['saturation'] * (1 - $f)));
+            $p = $brightness * (1 - $saturation);
+            $q = $brightness * (1 - ($saturation * $f));
+            $t = $brightness * (1 - ($saturation * (1 - $f)));
             switch (intval($h)) {
                 case 0:
                     return self::rgbToHex(
-                        $prepareValue($hsbValue['brightness']),
+                        $prepareValue($brightness),
                         $prepareValue($t),
                         $prepareValue($p)
                     );
@@ -261,14 +358,14 @@ trait HelperColorDevice
                 case 1:
                     return self::rgbToHex(
                         $prepareValue($q),
-                        $prepareValue($hsbValue['brightness']),
+                        $prepareValue($brightness),
                         $prepareValue($p)
                     );
 
                 case 2:
                     return self::rgbToHex(
                         $prepareValue($p),
-                        $prepareValue($hsbValue['brightness']),
+                        $prepareValue($brightness),
                         $prepareValue($t)
                     );
 
@@ -276,24 +373,146 @@ trait HelperColorDevice
                     return self::rgbToHex(
                         $prepareValue($p),
                         $prepareValue($q),
-                        $prepareValue($hsbValue['brightness'])
+                        $prepareValue($brightness)
                     );
 
                 case 4:
                     return self::rgbToHex(
                         $prepareValue($t),
                         $prepareValue($p),
-                        $prepareValue($hsbValue['brightness'])
+                        $prepareValue($brightness)
                     );
 
                 case 5:
                     return self::rgbToHex(
-                        $prepareValue($hsbValue['brightness']),
+                        $prepareValue($brightness),
                         $prepareValue($p),
                         $prepareValue($q)
                     );
             }
         }
         return 0;
+    }
+
+    private static function hueToRgb($p, $q, $t)
+    {
+        if ($t < 0) $t += 1;
+        if ($t > 1) $t -= 1;
+        if ($t < 1 / 6) return $p + ($q - $p) * 6 * $t;
+        if ($t < 1 / 2) return $q;
+        if ($t < 2 / 3) return $p + ($q - $p) * (2 / 3 - $t) * 6;
+        return $p;
+    }
+
+    private static function rgbToJson($r, $g, $b, $encoding)
+    {
+        switch ($encoding) {
+            case 0: // RGB
+                return json_encode(['r' => $r, 'g' => $g, 'b' => $b]);
+                break;
+            case 1: //CMYK
+                // Normalize RGB values to 0-1 range
+                $r = $r / 255;
+                $g = $g / 255;
+                $b = $b / 255;
+
+                // Calculate K (black)
+                $k = 1 - max($r, $g, $b);
+
+                // If K is 1, then C, M, and Y are 0.  Handle this edge case.
+                if ($k == 1) {
+                    return json_encode(['c' => 0, 'm' => 0, 'y' => 0, 'k' => 100]);
+                }
+
+                // Calculate C, M, and Y
+                $c = (1 - $r - $k) / (1 - $k);
+                $m = (1 - $g - $k) / (1 - $k);
+                $y = (1 - $b - $k) / (1 - $k);
+
+                $c = round($c * 100);
+                $m = round($m * 100);
+                $y = round($y * 100);
+                $k = round($k * 100);
+
+                return json_encode(['c' => $c, 'm' => $m, 'y' => $y, 'k' => $k]);
+
+            case 2: // HSV = HSB
+                $hsb = self::rgbToHSB(self::rgbToHex($r, $g, $b));
+                return json_encode(['h' => round($hsb['hue']), 's' => round($hsb['saturation'] * 100), 'v' => round($hsb['brightness'] * 100)]);
+            case 3: // HSL
+                // 1. Normalize RGB values to the range 0-1
+                $r /= 255;
+                $g /= 255;
+                $b /= 255;
+
+                // 2. Find min and max values
+                $max = max($r, $g, $b);
+                $min = min($r, $g, $b);
+                $chroma = $max - $min;
+
+                // 3. Calculate Lightness (L)
+                $l = ($max + $min) / 2;
+
+                // 4. Calculate Saturation (S)
+                if ($chroma == 0) {
+                    $s = 0; // Achromatic (gray) - no saturation
+                } else {
+                    $s = $l < 0.5 ? $chroma / ($max + $min) : $chroma / (2 - $max - $min);
+                }
+
+                // 5. Calculate Hue (H)
+                if ($chroma == 0) {
+                    $h = 0; // Achromatic (gray) - hue is undefined, typically set to 0
+                } else {
+                    switch ($max) {
+                        case $r:
+                            $h = ($g - $b) / $chroma;
+                            if ($h < 0) {  // Make sure h is always positive.  Crucial!
+                                $h += 6;
+                            }
+                            break;
+                        case $g:
+                            $h = ($b - $r) / $chroma + 2;
+                            break;
+                        case $b:
+                            $h = ($r - $g) / $chroma + 4;
+                            break;
+                    }
+                    $h *= 60; // Convert to degrees (0-360)
+                }
+
+                return json_encode([
+                    'h' => round($h),
+                    's' => round($s * 100),
+                    'l' => round($l * 100)
+                ]);
+
+            default:
+                throw new Exception("Unknown color encoding $encoding");
+        }
+    }
+
+    private static function encodedStringToRGB($value, $encoding)
+    {
+        $decodedValue = json_decode($value, true);
+        switch ($encoding) {
+            case 0: // RGB
+                return ($decodedValue['r'] << 16) + ($decodedValue['g'] << 8) + $decodedValue['b'];
+
+            case 1: // CMYK
+                return self::cmykToHex($decodedValue['c'], $decodedValue['m'], $decodedValue['y'], $decodedValue['k']);
+
+            case 2: // HSV = HSB
+                // We want to reuse existing code
+                $rgb = self::hsbToRGB($decodedValue['h'], $decodedValue['s'], $decodedValue['v']);
+                throw new Exception($decodedValue, $rgb);
+
+            case 3: // HSL
+                return self::hslToRGB($decodedValue['h'], $decodedValue['s'], $decodedValue['l']);
+
+            default:
+                throw new Exception("Unknown encoding: $encoding");
+                break;
+        }
     }
 }

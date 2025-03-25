@@ -27,20 +27,27 @@ trait HelperGetFloatDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        if ($targetVariable['VariableCustomProfile'] != '') {
-            $profileName = $targetVariable['VariableCustomProfile'];
-        } else {
-            $profileName = $targetVariable['VariableProfile'];
-        }
+        $presentation = IPS_GetVariablePresentation($variableID);
 
         $value = GetValue($variableID);
+        switch ($presentation['PRESENTATION'] ?? 'No presentation') {
+            case VARIABLE_PRESENTATION_LEGACY:
+                $profileName = $presentation['PROFILE'];
+                if ($profileName != '') {
+                    $profile = IPS_GetVariableProfile($profileName);
 
-        if ($profileName != '') {
-            $profile = IPS_GetVariableProfile($profileName);
+                    $value = round($value, $profile['Digits']);
+                }
+                break;
 
-            $value = round($value, $profile['Digits']);
+            case VARIABLE_PRESENTATION_SLIDER:
+                $value = round($value, $presentation['DIGITS']);
+                break;
+
+            default:
+                break;
+
         }
-
         return $value;
     }
 }
@@ -55,17 +62,11 @@ trait HelperSetFloatDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        if ($targetVariable['VariableType'] != 2 /* Float */) {
+        if ($targetVariable['VariableType'] != VARIABLETYPE_FLOAT) {
             return 'Float required';
         }
 
-        if ($targetVariable['VariableCustomAction'] != 0) {
-            $profileAction = $targetVariable['VariableCustomAction'];
-        } else {
-            $profileAction = $targetVariable['VariableAction'];
-        }
-
-        if (!($profileAction > 10000)) {
+        if (!HasAction($variableID)) {
             return 'Action required';
         }
 
@@ -80,17 +81,11 @@ trait HelperSetFloatDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        if ($targetVariable['VariableCustomAction'] != 0) {
-            $profileAction = $targetVariable['VariableCustomAction'];
-        } else {
-            $profileAction = $targetVariable['VariableAction'];
-        }
-
-        if ($profileAction < 10000) {
+        if (!HasAction($variableID)) {
             return false;
         }
 
-        if ($targetVariable['VariableType'] != 2 /* Float */) {
+        if ($targetVariable['VariableType'] != VARIABLETYPE_FLOAT) {
             return false;
         }
 
@@ -98,15 +93,7 @@ trait HelperSetFloatDevice
             return false;
         }
 
-        if (IPS_InstanceExists($profileAction)) {
-            IPS_RunScriptText('IPS_RequestAction(' . var_export($profileAction, true) . ', ' . var_export(IPS_GetObject($variableID)['ObjectIdent'], true) . ', ' . var_export($value, true) . ');');
-        } elseif (IPS_ScriptExists($profileAction)) {
-            IPS_RunScriptEx($profileAction, ['VARIABLE' => $variableID, 'VALUE' => $value, 'SENDER' => 'VoiceControl']);
-        } else {
-            return false;
-        }
-
-        return true;
+        return RequestActionEx($variableID, $value, 'VoiceControl');
     }
 }
 

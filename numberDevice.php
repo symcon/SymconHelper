@@ -12,7 +12,7 @@ trait HelperGetNumberDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        if (!in_array($targetVariable['VariableType'], [1, 2] /* Int, Float */)) {
+        if (!in_array($targetVariable['VariableType'], [VARIABLETYPE_INTEGER, VARIABLETYPE_FLOAT])) {
             return 'Int/Float required';
         }
 
@@ -27,21 +27,37 @@ trait HelperGetNumberDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        if ($targetVariable['VariableCustomProfile'] != '') {
-            $profileName = $targetVariable['VariableCustomProfile'];
-        } else {
-            $profileName = $targetVariable['VariableProfile'];
+        $presentation = IPS_GetVariablePresentation($variableID);
+        if (empty($presentation)) {
+            return false;
         }
 
         $value = GetValue($variableID);
+        switch ($presentation['PRESENTATION']) {
+            case VARIABLE_PRESENTATION_LEGACY:
+                $profileName = $presentation['PROFILE'];
 
-        if (($targetVariable['VariableType'] == 2 /* Float */) && ($profileName != '')) {
-            $profile = IPS_GetVariableProfile($profileName);
+                if (($targetVariable['VariableType'] == 2 /* Float */) && ($profileName != '')) {
+                    $profile = IPS_GetVariableProfile($profileName);
 
-            $value = round($value, $profile['Digits']);
+                    $value = round($value, $profile['Digits']);
+                }
+
+                return $value;
+
+            case VARIABLE_PRESENTATION_SLIDER:
+                if (($targetVariable['VariableType'] == 2 /* Float */)) {
+                    $value = round($value, $presentation['DIGITS']);
+                }
+                return $value;
+
+            case VARIABLE_PRESENTATION_ENUMERATION:
+                return $value;
+
+            default:
+                return false;
         }
 
-        return $value;
     }
 }
 
@@ -55,17 +71,11 @@ trait HelperSetNumberDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        if (!in_array($targetVariable['VariableType'], [1, 2] /* Int, Float */)) {
+        if (!in_array($targetVariable['VariableType'], [VARIABLETYPE_INTEGER, VARIABLETYPE_FLOAT])) {
             return 'Int/Float required';
         }
 
-        if ($targetVariable['VariableCustomAction'] !== 0) {
-            $profileAction = $targetVariable['VariableCustomAction'];
-        } else {
-            $profileAction = $targetVariable['VariableAction'];
-        }
-
-        if (!($profileAction > 10000)) {
+        if (!HasAction($variableID)) {
             return 'Action required';
         }
 
@@ -78,19 +88,13 @@ trait HelperSetNumberDevice
             return false;
         }
 
-        $targetVariable = IPS_GetVariable($variableID);
-
-        if ($targetVariable['VariableCustomAction'] != 0) {
-            $profileAction = $targetVariable['VariableCustomAction'];
-        } else {
-            $profileAction = $targetVariable['VariableAction'];
-        }
-
-        if ($profileAction < 10000) {
+        if (!HasAction($variableID)) {
             return false;
         }
 
-        if (!in_array($targetVariable['VariableType'], [1, 2] /* Int, Float */)) {
+        $targetVariable = IPS_GetVariable($variableID);
+
+        if (!in_array($targetVariable['VariableType'], [VARIABLETYPE_INTEGER, VARIABLETYPE_FLOAT])) {
             return false;
         }
 
@@ -98,15 +102,7 @@ trait HelperSetNumberDevice
             return false;
         }
 
-        if (IPS_InstanceExists($profileAction)) {
-            IPS_RunScriptText('IPS_RequestAction(' . var_export($profileAction, true) . ', ' . var_export(IPS_GetObject($variableID)['ObjectIdent'], true) . ', ' . var_export($value, true) . ');');
-        } elseif (IPS_ScriptExists($profileAction)) {
-            IPS_RunScriptEx($profileAction, ['VARIABLE' => $variableID, 'VALUE' => $value, 'SENDER' => 'VoiceControl']);
-        } else {
-            return false;
-        }
-
-        return true;
+        return RequestActionEx($variableID, $value, 'VoiceControl');
     }
 }
 

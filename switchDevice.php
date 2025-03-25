@@ -12,17 +12,11 @@ trait HelperSwitchDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        if ($targetVariable['VariableType'] != 0 /* Boolean */) {
+        if ($targetVariable['VariableType'] != VARIABLETYPE_BOOLEAN) {
             return 'Bool required';
         }
 
-        if ($targetVariable['VariableCustomAction'] != 0) {
-            $profileAction = $targetVariable['VariableCustomAction'];
-        } else {
-            $profileAction = $targetVariable['VariableAction'];
-        }
-
-        if (!($profileAction > 10000)) {
+        if (!HasAction($variableID)) {
             return 'Action required';
         }
 
@@ -33,19 +27,14 @@ trait HelperSwitchDevice
     {
         $targetVariable = IPS_GetVariable($variableID);
 
-        if ($targetVariable['VariableCustomProfile'] != '') {
-            $profileName = $targetVariable['VariableCustomProfile'];
-        } else {
-            $profileName = $targetVariable['VariableProfile'];
-        }
-
         $value = GetValue($variableID);
-
-        // Revert value for reversed profile
-        if (preg_match('/\.Reversed$/', $profileName)) {
-            $value = !$value;
+        $presentation = IPS_GetVariablePresentation($variableID);
+        if ($presentation['PRESENTATION'] === VARIABLE_PRESENTATION_LEGACY) {
+            // Revert value for reversed profile
+            if (preg_match('/\.Reversed$/', $presentation['PROFILE'])) {
+                $value = !$value;
+            }
         }
-
         return $value;
     }
 
@@ -55,43 +44,25 @@ trait HelperSwitchDevice
             return false;
         }
 
-        $targetVariable = IPS_GetVariable($variableID);
-
-        if ($targetVariable['VariableCustomProfile'] != '') {
-            $profileName = $targetVariable['VariableCustomProfile'];
-        } else {
-            $profileName = $targetVariable['VariableProfile'];
-        }
-
-        if ($targetVariable['VariableCustomAction'] != 0) {
-            $profileAction = $targetVariable['VariableCustomAction'];
-        } else {
-            $profileAction = $targetVariable['VariableAction'];
-        }
-
-        if ($profileAction < 10000) {
+        if (!HasAction($variableID)) {
             return false;
         }
 
-        if ($targetVariable['VariableType'] == 0 /* Boolean */) {
+        $targetVariable = IPS_GetVariable($variableID);
+
+        if ($targetVariable['VariableType'] == VARIABLETYPE_BOOLEAN) {
             $value = boolval($value);
         } else {
             return false;
         }
 
-        // Revert value for reversed profile
-        if (preg_match('/\.Reversed$/', $profileName)) {
-            $value = !$value;
+        $presentation = IPS_GetVariablePresentation($variableID);
+        if (($presentation['PRESENTATION'] ?? 'No presentation') === VARIABLE_PRESENTATION_LEGACY) {
+            // Revert value for reversed profile
+            if (preg_match('/\.Reversed$/', $presentation['PROFILE'])) {
+                $value = !$value;
+            }
         }
-
-        if (IPS_InstanceExists($profileAction)) {
-            IPS_RunScriptText('IPS_RequestAction(' . var_export($profileAction, true) . ', ' . var_export(IPS_GetObject($variableID)['ObjectIdent'], true) . ', ' . var_export($value, true) . ');');
-        } elseif (IPS_ScriptExists($profileAction)) {
-            IPS_RunScriptEx($profileAction, ['VARIABLE' => $variableID, 'VALUE' => $value, 'SENDER' => 'VoiceControl']);
-        } else {
-            return false;
-        }
-
-        return true;
+        return RequestActionEx($variableID, $value, 'VoiceControl');
     }
 }

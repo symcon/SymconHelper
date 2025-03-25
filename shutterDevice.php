@@ -18,30 +18,19 @@ trait HelperShutterDevice
             return 'Integer required';
         }
 
-        if ($targetVariable['VariableCustomAction'] !== 0) {
-            $profileAction = $targetVariable['VariableCustomAction'];
-        } else {
-            $profileAction = $targetVariable['VariableAction'];
+        $presentation = IPS_GetVariablePresentation($variableID);
+        if (empty($presentation)) {
+            return 'Presentation required';
         }
 
-        if (!($profileAction > 10000)) {
+        if (!HasAction($variableID)) {
             return 'Action required';
         }
 
-        if ($targetVariable['VariableCustomProfile'] != '') {
-            $profileName = $targetVariable['VariableCustomProfile'];
-        } else {
-            $profileName = $targetVariable['VariableProfile'];
+        if ($presentation['PRESENTATION'] == VARIABLE_PRESENTATION_LEGACY && !in_array($presentation['PROFILE'], ['~ShutterMoveStop', '~ShutterMoveStep'])) {
+            return '~ShutterMoveStop or ~ShutterMoveStep profile required';
         }
 
-        switch ($profileName) {
-            case '~ShutterMoveStop':
-            case '~ShutterMoveStep':
-                break;
-
-            default:
-                return '~ShutterMoveStop profile required';
-        }
 
         return 'OK';
     }
@@ -54,7 +43,7 @@ trait HelperShutterDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        if ($targetVariable['VariableType'] != 1 /* Integer */) {
+        if ($targetVariable['VariableType'] != VARIABLETYPE_INTEGER) {
             return false;
         }
 
@@ -71,13 +60,7 @@ trait HelperShutterDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        if ($targetVariable['VariableCustomAction'] != 0) {
-            $profileAction = $targetVariable['VariableCustomAction'];
-        } else {
-            $profileAction = $targetVariable['VariableAction'];
-        }
-
-        if ($profileAction < 10000) {
+        if (!HasAction($variableID)) {
             return false;
         }
 
@@ -87,14 +70,6 @@ trait HelperShutterDevice
 
         $triggerValue = $value ? OPEN : CLOSE;
 
-        if (IPS_InstanceExists($profileAction)) {
-            IPS_RunScriptText('IPS_RequestAction(' . var_export($profileAction, true) . ', ' . var_export(IPS_GetObject($variableID)['ObjectIdent'], true) . ', ' . var_export($triggerValue, true) . ');');
-        } elseif (IPS_ScriptExists($profileAction)) {
-            IPS_RunScriptEx($profileAction, ['VARIABLE' => $variableID, 'VALUE' => $triggerValue, 'SENDER' => 'VoiceControl']);
-        } else {
-            return false;
-        }
-
-        return true;
+        return RequestActionEx($variableID, $triggerValue, 'VoiceControl');
     }
 }
