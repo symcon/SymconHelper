@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 trait HelperSwitchDevice
 {
-    private static function getSwitchCompatibility($variableID)
+    private static function getSwitchCompatibility($variableID, $requireAction = true)
     {
         if (!IPS_VariableExists($variableID)) {
             return 'Missing';
@@ -16,7 +16,7 @@ trait HelperSwitchDevice
             return 'Bool required';
         }
 
-        if (!HasAction($variableID)) {
+        if ($requireAction && !HasAction($variableID)) {
             return 'Action required';
         }
 
