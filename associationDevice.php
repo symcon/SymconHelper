@@ -218,7 +218,7 @@ trait HelperAssociationDevice
     private static function isValidAssociationString($variableID, $value)
     {
         $presentation = IPS_GetVariablePresentation($variableID);
-        return self::isValidAssociation($variableID, $value, $presentation['PRESENTAITON'] ?? VARIABLE_PRESENTATION_LEGACY == VARIABLE_PRESENTATION_LEGACY ? 'Name' : 'Caption');
+        return self::isValidAssociation($variableID, $value, ($presentation['PRESENTATION'] ?? VARIABLE_PRESENTATION_LEGACY) == VARIABLE_PRESENTATION_LEGACY ? 'Name' : 'Caption');
     }
 
     private static function incrementAssociation($variableID, $increment)
