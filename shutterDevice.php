@@ -27,7 +27,7 @@ trait HelperShutterDevice
             return 'Action required';
         }
 
-        if ($presentation['PRESENTATION'] == VARIABLE_PRESENTATION_LEGACY && !in_array($presentation['PROFILE'], ['~ShutterMoveStop', '~ShutterMoveStep'])) {
+        if ($presentation['PRESENTATION'] != VARIABLE_PRESENTATION_LEGACY || ($presentation['PRESENTATION'] == VARIABLE_PRESENTATION_LEGACY && !in_array($presentation['PROFILE'], ['~ShutterMoveStop', '~ShutterMoveStep']))) {
             return '~ShutterMoveStop or ~ShutterMoveStep profile required';
         }
 
