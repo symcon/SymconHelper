@@ -29,7 +29,7 @@ trait HelperSwitchDevice
 
         $value = GetValue($variableID);
         $presentation = IPS_GetVariablePresentation($variableID);
-        if ($presentation['PRESENTATION'] ?? 'No presentation' === VARIABLE_PRESENTATION_LEGACY) {
+        if (($presentation['PRESENTATION'] ?? 'No presentation') === VARIABLE_PRESENTATION_LEGACY) {
             // Revert value for reversed profile
             if (preg_match('/\.Reversed$/', $presentation['PROFILE'])) {
                 $value = !$value;
