@@ -28,6 +28,19 @@ trait HelperSwitchDevice
         $targetVariable = IPS_GetVariable($variableID);
 
         $value = GetValue($variableID);
+
+        // Handling for versions prior to presentations being supported
+        if (!function_exists('IPS_GetVariablePresentation')) {
+            if ($targetVariable['VariableCustomProfile'] != '') {
+                $profileName = $targetVariable['VariableCustomProfile'];
+            } else {
+                $profileName = $targetVariable['VariableProfile'];
+            }
+            if (preg_match('/\.Reversed$/', $profileName)) {
+                $value = !$value;
+            }
+            return $value;
+        }
         $presentation = IPS_GetVariablePresentation($variableID);
         if (($presentation['PRESENTATION'] ?? 'No presentation') === VARIABLE_PRESENTATION_LEGACY) {
             // Revert value for reversed profile

@@ -18,19 +18,31 @@ trait HelperShutterDevice
             return 'Integer required';
         }
 
-        $presentation = IPS_GetVariablePresentation($variableID);
-        if (empty($presentation)) {
-            return 'Presentation required';
-        }
-
         if (!HasAction($variableID)) {
             return 'Action required';
         }
 
-        if ($presentation['PRESENTATION'] != VARIABLE_PRESENTATION_LEGACY || ($presentation['PRESENTATION'] == VARIABLE_PRESENTATION_LEGACY && !in_array($presentation['PROFILE'], ['~ShutterMoveStop', '~ShutterMoveStep']))) {
-            return '~ShutterMoveStop or ~ShutterMoveStep profile required';
-        }
+        if (!function_exists('IPS_GetVariablePresentation')) {
+            $profileName = '';
+            if ($targetVariable['VariableCustomProfile'] != '') {
+                $profileName = $targetVariable['VariableCustomProfile'];
+            } else {
+                $profileName = $targetVariable['VariableProfile'];
+            }
 
+            if (!in_array($profileName, ['~ShutterMoveStop', '~ShutterMoveStep'])) {
+                return '~ShutterMoveStop or ~ShutterMoveStep profile required';
+            }
+        } else {
+            $presentation = IPS_GetVariablePresentation($variableID);
+            if (empty($presentation)) {
+                return 'Presentation required';
+            }
+
+            if ($presentation['PRESENTATION'] != VARIABLE_PRESENTATION_LEGACY || ($presentation['PRESENTATION'] == VARIABLE_PRESENTATION_LEGACY && !in_array($presentation['PROFILE'], ['~ShutterMoveStop', '~ShutterMoveStep']))) {
+                return '~ShutterMoveStop or ~ShutterMoveStep profile required';
+            }
+        }
 
         return 'OK';
     }

@@ -147,34 +147,51 @@ trait HelperColorDevice
         if (!HasAction($variableID)) {
             return 'Action required';
         }
+        
+        $targetVariable = IPS_GetVariable($variableID);;
+        $variableType = $targetVariable['VariableType'];
 
-        $presentation = IPS_GetVariablePresentation($variableID);
+        if (!function_exists('IPS_GetVariablePresentation')) {
+            if ($variableType != VARIABLETYPE_INTEGER) {
+                return 'Integer required';
+            }
+            $profileName = '';
+            if ($targetVariable['VariableCustomProfile'] != '') {
+                $profileName = $targetVariable['VariableCustomProfile'];
+            } else {
+                $profileName = $targetVariable['VariableProfile'];
+            }
+            if ($profileName != '~HexColor') {
+                return '~HexColor profile required';
+            }
+        } else {
+            $presentation = IPS_GetVariablePresentation($variableID);
 
-        if (empty($presentation)) {
-            return 'Presentation required';
-        }
+            if (empty($presentation)) {
+                return 'Presentation required';
+            }
 
-        $variableType = IPS_GetVariable($variableID)['VariableType'];
 
-        switch ($presentation['PRESENTATION']) {
-            case VARIABLE_PRESENTATION_LEGACY:
-                if ($variableType != VARIABLETYPE_INTEGER) {
-                    return 'Integer required';
-                }
-                if ($presentation['PROFILE'] != '~HexColor') {
-                    return '~HexColor profile required';
-                }
-                break;
+            switch ($presentation['PRESENTATION']) {
+                case VARIABLE_PRESENTATION_LEGACY:
+                    if ($variableType != VARIABLETYPE_INTEGER) {
+                        return 'Integer required';
+                    }
+                    if ($presentation['PROFILE'] != '~HexColor') {
+                        return '~HexColor profile required';
+                    }
+                    break;
 
-            case VARIABLE_PRESENTATION_COLOR:
-                if (!in_array($variableType, [VARIABLETYPE_INTEGER, VARIABLETYPE_STRING])) {
-                    return 'Integer or String required';
-                }
-                break;
+                case VARIABLE_PRESENTATION_COLOR:
+                    if (!in_array($variableType, [VARIABLETYPE_INTEGER, VARIABLETYPE_STRING])) {
+                        return 'Integer or String required';
+                    }
+                    break;
 
-            default:
-                return 'Presentation Legacy or Color required';
+                default:
+                    return 'Presentation Legacy or Color required';
 
+            }
         }
 
         return 'OK';
