@@ -44,7 +44,7 @@ trait HelperGetFloatDevice
             } else {
                 $profileName = $targetVariable['VariableProfile'];
             }
-            $legacyValue($profileName);
+            return $value;
         } else {
             $presentation = IPS_GetVariablePresentation($variableID);
     
