@@ -140,40 +140,55 @@ trait HelperAssociationDevice
             return false;
         }
 
-        $presentation = IPS_GetVariablePresentation($variableID);
-        if (empty($presentation)) {
-            return false;
-        }
-
-        switch ($presentation['PRESENTATION']) {
-            case VARIABLE_PRESENTATION_LEGACY:
-                $profileName = $presentation['PROFILE'];
-
-                if (!IPS_VariableProfileExists($profileName)) {
-                    return false;
-                }
-
-                $profile = IPS_GetVariableProfile($profileName);
-
-                foreach ($profile['Associations'] as $association) {
-                    if (strcasecmp($association['Name'], $value) == 0) {
-                        return self::setAssociationNumber($variableID, intval($association['Value']));
-                    }
-                }
-                break;
-
-            case VARIABLE_PRESENTATION_ENUMERATION:
-                $options = json_decode($presentation['OPTIONS'], true);
-                foreach ($options as $option) {
-                    if (strcasecmp($option['Caption'], $value) == 0) {
-                        return self::setAssociationNumber($variableID, intval($option['Value']));
-                    }
-                }
-
-                break;
-
-            default:
+        $legacyValue = function ($profileName) use ($value, $variableID)
+        {
+            if (!IPS_VariableProfileExists($profileName)) {
                 return false;
+            }
+
+            $profile = IPS_GetVariableProfile($profileName);
+
+            foreach ($profile['Associations'] as $association) {
+                if (strcasecmp($association['Name'], $value) == 0) {
+                    return self::setAssociationNumber($variableID, intval($association['Value']));
+                }
+            }
+            return false;
+        };
+
+        if (!function_exists('IPS_GetVariablePresentation')) {
+            $profileName = '';
+            $targetVariable = IPS_GetVariable($variableID);
+            if ($targetVariable['VariableCustomProfile'] != '') {
+                $profileName = $targetVariable['VariableCustomProfile'] ?? '';
+            } else {
+                $profileName = $targetVariable['VariableProfile'] ?? '';
+            }
+            return $legacyValue($profileName);
+        } else {
+            $presentation = IPS_GetVariablePresentation($variableID);
+            if (empty($presentation)) {
+                return false;
+            }
+
+            switch ($presentation['PRESENTATION']) {
+                case VARIABLE_PRESENTATION_LEGACY:
+                    return $legacyValue($presentation['PROFILE']);
+
+                case VARIABLE_PRESENTATION_ENUMERATION:
+                    $options = json_decode($presentation['OPTIONS'], true);
+                    foreach ($options as $option) {
+                        if (strcasecmp($option['Caption'], $value) == 0) {
+                            return self::setAssociationNumber($variableID, intval($option['Value']));
+                        }
+                    }
+
+                    break;
+
+                default:
+                    return false;
+            }
+
         }
 
         // Fail, if no association was found
@@ -186,29 +201,9 @@ trait HelperAssociationDevice
             return false;
         }
 
-        $presentation = IPS_GetVariablePresentation($variableID);
-        if (empty($presentation)) {
+        $associations = self::getAssociations($variableID);
+        if ($associations === false) {
             return false;
-        }
-
-        // Legacy associations and options have the same structure so we can handle them basically the same way
-        $associations = [];
-        switch ($presentation['PRESENTATION']) {
-            case VARIABLE_PRESENTATION_LEGACY:
-                $profileName = $presentation['PROFILE'];
-                if (!IPS_VariableProfileExists($profileName)) {
-                    return false;
-                }
-                $associations = IPS_GetVariableProfile($profileName)['Associations'];
-                break;
-
-            case VARIABLE_PRESENTATION_ENUMERATION:
-                $associations = json_decode($presentation['OPTIONS'], true);
-                break;
-
-            default:
-                return false;
-
         }
         if (empty($associations)) {
             return false;
@@ -237,8 +232,15 @@ trait HelperAssociationDevice
 
     private static function isValidAssociationString($variableID, $value)
     {
-        $presentation = IPS_GetVariablePresentation($variableID);
-        return self::isValidAssociation($variableID, $value, ($presentation['PRESENTATION'] ?? VARIABLE_PRESENTATION_LEGACY) == VARIABLE_PRESENTATION_LEGACY ? 'Name' : 'Caption');
+
+        $field = 'Name';
+        if (function_exists('IPS_GetVariablePresentation')) {
+            $presentation = IPS_GetVariablePresentation($variableID);
+            if (($presentation['PRESENTATION'] ?? VARIABLE_PRESENTATION_LEGACY) != VARIABLE_PRESENTATION_LEGACY) {
+                $field = 'Caption';
+            }
+        }
+        return self::isValidAssociation($variableID, $value, $field);
     }
 
     private static function incrementAssociation($variableID, $increment)
@@ -246,29 +248,10 @@ trait HelperAssociationDevice
         if (!IPS_VariableExists($variableID)) {
             return false;
         }
-        $presentation = IPS_GetVariablePresentation($variableID);
-        if (empty($presentation)) {
+
+        $associations = self::getAssociations($variableID);
+        if ($associations === false) {
             return false;
-        }
-
-        // Legacy associations and options have the same structure so we can handle them basically the same way
-        $associations = [];
-        switch ($presentation['PRESENTATION']) {
-            case VARIABLE_PRESENTATION_LEGACY:
-                $profileName = $presentation['PROFILE'];
-                if (!IPS_VariableProfileExists($profileName)) {
-                    return false;
-                }
-                $associations = IPS_GetVariableProfile($profileName)['Associations'];
-                break;
-
-            case VARIABLE_PRESENTATION_ENUMERATION:
-                $associations = json_decode($presentation['OPTIONS'], true);
-                break;
-
-            default:
-                return false;
-
         }
         if (empty($associations)) {
             return false;
@@ -297,5 +280,58 @@ trait HelperAssociationDevice
         }
 
         return self::setAssociationNumber($variableID, $newValue);
+    }
+
+    private static function getAssociations($variableID)
+    {
+        $associations = [];
+        $getLegacyAssociations = function ($profileName)
+        {
+            if (!IPS_VariableProfileExists($profileName)) {
+                return false;
+            }
+            return IPS_GetVariableProfile($profileName)['Associations'];
+        };
+
+        if (!function_exists('IPS_GetVariablePresentation')) {
+            $profileName = '';
+            $targetVariable = IPS_GetVariable($variableID);
+            if ($targetVariable['VariableCustomProfile'] != '') {
+                $profileName = $targetVariable['VariableCustomProfile'] ?? '';
+            } else {
+                $profileName = $targetVariable['VariableProfile'] ?? '';
+            }
+            $legacyAssociations = $getLegacyAssociations($profileName);
+            if ($legacyAssociations === false) {
+                return false;
+            }
+            $associations = $legacyAssociations;
+        } else {
+            $presentation = IPS_GetVariablePresentation($variableID);
+            if (empty($presentation)) {
+                return false;
+            }
+
+            // Legacy associations and options have the same structure so we can handle them basically the same way
+            switch ($presentation['PRESENTATION']) {
+                case VARIABLE_PRESENTATION_LEGACY:
+                    $legacyAssociations = $getLegacyAssociations($presentation['PROFILE']);
+                    if ($legacyAssociations === false) {
+                        return false;
+                    }
+                    $associations = $legacyAssociations;
+
+                    break;
+
+                case VARIABLE_PRESENTATION_ENUMERATION:
+                    $associations = json_decode($presentation['OPTIONS'], true);
+                    break;
+
+                default:
+                    return false;
+            }
+        }
+
+        return $associations;
     }
 }
