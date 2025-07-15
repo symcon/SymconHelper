@@ -24,72 +24,92 @@ trait HelperAssociationDevice
             return 'Int required';
         }
 
-        $presentation = IPS_GetVariablePresentation($variableID);
-        if (empty($presentation)) {
-            return 'Presentation required';
-        }
+        $checkLegacy = function ($profileName)
+        {
+            if (!IPS_VariableProfileExists($profileName)) {
+                return 'Profile required';
+            }
 
-        switch ($presentation['PRESENTATION']) {
-            case VARIABLE_PRESENTATION_LEGACY:
-                $profileName = $presentation['PROFILE'];
-                if (!IPS_VariableProfileExists($profileName)) {
-                    return 'Profile required';
+            $profile = IPS_GetVariableProfile($profileName);
+
+            if (($profile['StepSize'] != 0) || (count($profile['Associations']) == 0)) {
+                return 'No association profile';
+            }
+
+            // Initialize minimum and maximum one above/below legal maximum
+            $minimumAssociation = count($profile['Associations']) + 1;
+            $maximumAssociation = -1;
+            foreach ($profile['Associations'] as $association) {
+                if ($association['Value'] < 0) {
+                    return 'Negative associations not allowed';
                 }
 
-                $profile = IPS_GetVariableProfile($profileName);
-
-                if (($profile['StepSize'] != 0) || (count($profile['Associations']) == 0)) {
-                    return 'No association profile';
+                if ($association['Value'] > $maximumAssociation) {
+                    $maximumAssociation = $association['Value'];
                 }
 
-                // Initialize minimum and maximum one above/below legal maximum
-                $minimumAssociation = count($profile['Associations']) + 1;
-                $maximumAssociation = -1;
-                foreach ($profile['Associations'] as $association) {
-                    if ($association['Value'] < 0) {
-                        return 'Negative associations not allowed';
-                    }
-
-                    if ($association['Value'] > $maximumAssociation) {
-                        $maximumAssociation = $association['Value'];
-                    }
-
-                    if ($association['Value'] < $minimumAssociation) {
-                        $minimumAssociation = $association['Value'];
-                    }
+                if ($association['Value'] < $minimumAssociation) {
+                    $minimumAssociation = $association['Value'];
                 }
+            }
 
-                if (($maximumAssociation - $minimumAssociation + 1) != count($profile['Associations'])) {
-                    return 'Associations not enumerated';
-                }
+            if (($maximumAssociation - $minimumAssociation + 1) != count($profile['Associations'])) {
+                return 'Associations not enumerated';
+            }
+        };
 
-                break;
-            case VARIABLE_PRESENTATION_ENUMERATION:
-                $options = json_decode($presentation['OPTIONS'], true);
-                // Initialize minimum and maximum one above/below legal maximum
-                $minimumOption = count($options) + 1;
-                $maximumOption = -1;
-                foreach ($options as $option) {
-                    if ($option['Value'] < 0) {
-                        return 'Negative option not allowed';
+        if (!function_exists('IPS_GetVariablePresentation')) {
+            $profileName = '';
+            if ($targetVariable['VariableCustomProfile'] != '') {
+                $profileName = $targetVariable['VariableCustomProfile'];
+            } else {
+                $profileName = $targetVariable['VariableProfile'];
+            }
+            $result = $checkLegacy($profileName);
+            if (!empty($result)) {
+                return $result;
+            }
+        } else {
+            $presentation = IPS_GetVariablePresentation($variableID);
+            if (empty($presentation)) {
+                return 'Presentation required';
+            }
+
+            switch ($presentation['PRESENTATION']) {
+                case VARIABLE_PRESENTATION_LEGACY:
+                    $result = $checkLegacy($presentation['PROFILE']);
+                    if (!empty($result)) {
+                        return $result;
                     }
 
-                    if ($option['Value'] > $maximumOption) {
-                        $maximumOption = $option['Value'];
+                    break;
+                case VARIABLE_PRESENTATION_ENUMERATION:
+                    $options = json_decode($presentation['OPTIONS'], true);
+                    // Initialize minimum and maximum one above/below legal maximum
+                    $minimumOption = count($options) + 1;
+                    $maximumOption = -1;
+                    foreach ($options as $option) {
+                        if ($option['Value'] < 0) {
+                            return 'Negative option not allowed';
+                        }
+
+                        if ($option['Value'] > $maximumOption) {
+                            $maximumOption = $option['Value'];
+                        }
+
+                        if ($option['Value'] < $minimumOption) {
+                            $minimumOption = $option['Value'];
+                        }
                     }
 
-                    if ($option['Value'] < $minimumOption) {
-                        $minimumOption = $option['Value'];
+                    if (($maximumOption - $minimumOption + 1) != count($options)) {
+                        return 'Options not enumerated';
                     }
-                }
+                    break;
 
-                if (($maximumOption - $minimumOption + 1) != count($options)) {
-                    return 'Options not enumerated';
-                }
-                break;
-
-            default:
-                return 'Unknown presentation';
+                default:
+                    return 'Unknown presentation';
+            }
         }
 
         return 'OK';

@@ -69,11 +69,25 @@ trait HelperSwitchDevice
             return false;
         }
 
-        $presentation = IPS_GetVariablePresentation($variableID);
-        if (($presentation['PRESENTATION'] ?? 'No presentation') === VARIABLE_PRESENTATION_LEGACY) {
+        $legacyCheck = function ($profileName) use (&$value)
+        {
             // Revert value for reversed profile
-            if (preg_match('/\.Reversed$/', $presentation['PROFILE'])) {
+            if (preg_match('/\.Reversed$/', $profileName)) {
                 $value = !$value;
+            }
+        };
+        if (!function_exists('IPS_GetVariablePresentation')) {
+            $profileName = '';
+            if ($targetVariable['VariableCustomProfile'] != '') {
+                $profileName = $targetVariable['VariableCustomProfile'];
+            } else {
+                $profileName = $targetVariable['VariableProfile'];
+            }
+            $legacyCheck($profileName);
+        } else {
+            $presentation = IPS_GetVariablePresentation($variableID);
+            if (($presentation['PRESENTATION'] ?? 'No presentation') === VARIABLE_PRESENTATION_LEGACY) {
+                $legacyCheck($presentation['PROFILE']);
             }
         }
         return RequestActionEx($variableID, $value, 'VoiceControl');

@@ -197,40 +197,60 @@ trait HelperDimDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        $presentation = IPS_GetVariablePresentation($variableID);
-        if (empty($presentation)) {
-            return false;
-        }
-
         $minValue = 0;
         $maxValue = 100;
         $reversed = false;
 
-        switch ($presentation['PRESENTATION']) {
-            case VARIABLE_PRESENTATION_LEGACY:
-                $profileName = $presentation['PROFILE'];
-                if (!IPS_VariableProfileExists($profileName)) {
-                    return false;
-                }
-
-                // Revert value for reversed profile
-                $reversed = preg_match('/\.Reversed$/', $profileName);
-
-                $profile = IPS_GetVariableProfile($profileName);
-
-                $minValue = $profile['MinValue'];
-                $maxValue = $profile['MaxValue'];
-                break;
-
-            case VARIABLE_PRESENTATION_SLIDER:
-            case VARIABLE_PRESENTATION_VALUE_PRESENTATION:
-                $minValue = $presentation['MIN'];
-                $maxValue = $presentation['MAX'];
-                break;
-
-            default:
+        $legacyCheck = function ($profileName) use (&$minValue, &$maxValue)
+        {
+            if (!IPS_VariableProfileExists($profileName)) {
                 return false;
+            }
 
+            // Revert value for reversed profile
+            $reversed = preg_match('/\.Reversed$/', $profileName);
+
+            $profile = IPS_GetVariableProfile($profileName);
+
+            $minValue = $profile['MinValue'];
+            $maxValue = $profile['MaxValue'];
+        };
+
+        if (!function_exists('IPS_GetVariablePresentation')) {
+            $profileName = '';
+            if ($targetVariable['VariableCustomProfile'] != '') {
+                $profileName = $targetVariable['VariableCustomProfile'];
+            } else {
+                $profileName = $targetVariable['VariableProfile'];
+            }
+            $result = $legacyCheck($profileName);
+            if ($result === false) {
+                return false;
+            }
+        } else {
+            $presentation = IPS_GetVariablePresentation($variableID);
+            if (empty($presentation)) {
+                return false;
+            }
+
+            switch ($presentation['PRESENTATION']) {
+                case VARIABLE_PRESENTATION_LEGACY:
+                    $result = $legacyCheck($presentation['PROFILE']);
+                    if ($result === false) {
+                        return false;
+                    }
+                    break;
+
+                case VARIABLE_PRESENTATION_SLIDER:
+                case VARIABLE_PRESENTATION_VALUE_PRESENTATION:
+                    $minValue = $presentation['MIN'];
+                    $maxValue = $presentation['MAX'];
+                    break;
+
+                default:
+                    return false;
+
+            }
         }
 
         $maxValue = $overrides['MAX'] ?? $maxValue;

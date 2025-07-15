@@ -73,33 +73,48 @@ trait HelperColorDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        $presentation = IPS_GetVariablePresentation($variableID);
+        $computeLegacy = function () use (&$rgbValue, $variableID, $targetVariable)
+        {
+            if ($targetVariable['VariableType'] != VARIABLETYPE_INTEGER) {
+                return false;
+            }
 
-        if (empty($presentation)) {
-            return false;
+            $rgbValue = GetValueInteger($variableID);
+        };
+
+        if (!function_exists('IPS_GetVariablePresentation')) {
+            $success = $computeLegacy();
+            if ($success === false) {
+                return false;
+            }
+        } else {
+            $presentation = IPS_GetVariablePresentation($variableID);
+    
+            if (empty($presentation)) {
+                return false;
+            }
+    
+            switch ($presentation['PRESENTATION']) {
+                case VARIABLE_PRESENTATION_LEGACY:
+                    $success = $computeLegacy();
+                    if ($success === false) {
+                        return false;
+                    }
+                    break;
+    
+                case VARIABLE_PRESENTATION_COLOR:
+                    if ($targetVariable['VariableType'] == VARIABLETYPE_INTEGER) {
+                        $rgbValue = GetValueInteger($variableID);
+                        break;
+                    } elseif ($targetVariable['VariableType'] == VARIABLETYPE_STRING) {
+                        $rgbValue = self::encodedStringToRGB(GetValueString($variableID), $presentation['ENCODING']);
+                        break;
+                    } else {
+                        return false;
+                    }
+            }
         }
 
-        switch ($presentation['PRESENTATION']) {
-            case VARIABLE_PRESENTATION_LEGACY:
-
-                if ($targetVariable['VariableType'] != VARIABLETYPE_INTEGER) {
-                    return false;
-                }
-
-                $rgbValue = GetValueInteger($variableID);
-                break;
-
-            case VARIABLE_PRESENTATION_COLOR:
-                if ($targetVariable['VariableType'] == VARIABLETYPE_INTEGER) {
-                    $rgbValue = GetValueInteger($variableID);
-                    break;
-                } elseif ($targetVariable['VariableType'] == VARIABLETYPE_STRING) {
-                    $rgbValue = self::encodedStringToRGB(GetValueString($variableID), $presentation['ENCODING']);
-                    break;
-                } else {
-                    return false;
-                }
-        }
 
         if (($rgbValue < 0) || ($rgbValue > 0xFFFFFF)) {
             return false;
@@ -147,8 +162,8 @@ trait HelperColorDevice
         if (!HasAction($variableID)) {
             return 'Action required';
         }
-        
-        $targetVariable = IPS_GetVariable($variableID);;
+
+        $targetVariable = IPS_GetVariable($variableID);
         $variableType = $targetVariable['VariableType'];
 
         if (!function_exists('IPS_GetVariablePresentation')) {
@@ -170,7 +185,6 @@ trait HelperColorDevice
             if (empty($presentation)) {
                 return 'Presentation required';
             }
-
 
             switch ($presentation['PRESENTATION']) {
                 case VARIABLE_PRESENTATION_LEGACY:
@@ -205,43 +219,50 @@ trait HelperColorDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        $presentation = IPS_GetVariablePresentation($variableID);
-        if (empty($presentation)) {
-            return 0;
-        }
+        $legacyValue = function () use ($targetVariable, $variableID)
+        {
+            if ($targetVariable['VariableType'] != VARIABLETYPE_INTEGER) {
+                return 0;
+            }
 
-        switch ($presentation['PRESENTATION']) {
-            case VARIABLE_PRESENTATION_LEGACY:
-                if ($targetVariable['VariableType'] != VARIABLETYPE_INTEGER) {
-                    return 0;
-                }
+            $value = GetValueInteger($variableID);
 
-                $value = GetValueInteger($variableID);
+            if (($value < 0) || ($value > 0xFFFFFF)) {
+                return 0;
+            }
 
-                if (($value < 0) || ($value > 0xFFFFFF)) {
-                    return 0;
-                }
+            return $value;
+        };
+        if (!function_exists('IPS_GetVariablePresentation')) {
+            return $legacyValue();
+        } else {
+            $presentation = IPS_GetVariablePresentation($variableID);
+            if (empty($presentation)) {
+                return 0;
+            }
 
-                return $value;
+            switch ($presentation['PRESENTATION']) {
+                case VARIABLE_PRESENTATION_LEGACY:
 
-            case VARIABLE_PRESENTATION_COLOR:
-                if ($targetVariable['VariableType'] == VARIABLETYPE_INTEGER) {
-                    $value = GetValueInteger($variableID);
+                case VARIABLE_PRESENTATION_COLOR:
+                    if ($targetVariable['VariableType'] == VARIABLETYPE_INTEGER) {
+                        $value = GetValueInteger($variableID);
 
-                    if (($value < 0) || ($value > 0xFFFFFF)) {
+                        if (($value < 0) || ($value > 0xFFFFFF)) {
+                            return 0;
+                        }
+
+                        return $value;
+                    } elseif ($targetVariable['VariableType'] == VARIABLETYPE_STRING) {
+                        return self::encodedStringToRGB(GetValueString($variableID), $presentation['ENCODING']);
+                    } else {
                         return 0;
                     }
 
-                    return $value;
-                } elseif ($targetVariable['VariableType'] == VARIABLETYPE_STRING) {
-                    return self::encodedStringToRGB(GetValueString($variableID), $presentation['ENCODING']);
-                } else {
+                    // No break. Add additional comment above this line if intentional
+                default:
                     return 0;
-                }
-
-                // No break. Add additional comment above this line if intentional
-            default:
-                return 0;
+            }
         }
     }
 
@@ -257,40 +278,50 @@ trait HelperColorDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        $presentation = IPS_GetVariablePresentation($variableID);
-        if (empty($presentation)) {
-            return false;
-        }
-        switch ($presentation['PRESENTATION']) {
-            case VARIABLE_PRESENTATION_LEGACY:
-                if ($targetVariable['VariableType'] != VARIABLETYPE_INTEGER) {
-                    return false;
-                }
+        if (!function_exists('IPS_GetVariablePresentation')) {
+            if ($targetVariable['VariableType'] != VARIABLETYPE_INTEGER) {
+                return false;
+            }
 
-                if (($value < 0) || ($value > 0xFFFFFF)) {
-                    return false;
-                }
-                break;
+            if (($value < 0) || ($value > 0xFFFFFF)) {
+                return false;
+            }
+        } else {
+            $presentation = IPS_GetVariablePresentation($variableID);
+            if (empty($presentation)) {
+                return false;
+            }
+            switch ($presentation['PRESENTATION']) {
+                case VARIABLE_PRESENTATION_LEGACY:
+                    if ($targetVariable['VariableType'] != VARIABLETYPE_INTEGER) {
+                        return false;
+                    }
 
-            case VARIABLE_PRESENTATION_COLOR:
-                if ($targetVariable['VariableType'] == VARIABLETYPE_INTEGER) {
                     if (($value < 0) || ($value > 0xFFFFFF)) {
                         return false;
                     }
                     break;
-                }
-                if ($targetVariable['VariableType'] == VARIABLETYPE_STRING) {
-                    $red = ($value >> 16) & 0xFF;
-                    $green = ($value >> 8) & 0xFF;
-                    $blue = $value & 0xFF;
-                    $value = self::rgbToJson($red, $green, $blue, $presentation['ENCODING']);
-                } else {
-                    return false;
-                }
-                break;
 
-            default:
-                return false;
+                case VARIABLE_PRESENTATION_COLOR:
+                    if ($targetVariable['VariableType'] == VARIABLETYPE_INTEGER) {
+                        if (($value < 0) || ($value > 0xFFFFFF)) {
+                            return false;
+                        }
+                        break;
+                    }
+                    if ($targetVariable['VariableType'] == VARIABLETYPE_STRING) {
+                        $red = ($value >> 16) & 0xFF;
+                        $green = ($value >> 8) & 0xFF;
+                        $blue = $value & 0xFF;
+                        $value = self::rgbToJson($red, $green, $blue, $presentation['ENCODING']);
+                    } else {
+                        return false;
+                    }
+                    break;
+
+                default:
+                    return false;
+            }
         }
 
         return RequestActionEx($variableID, $value, 'VoiceControl');

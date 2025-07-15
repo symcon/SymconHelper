@@ -27,28 +27,42 @@ trait HelperGetFloatDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        $presentation = IPS_GetVariablePresentation($variableID);
+        $legacyValue = function ($profileName) use (&$value)
+        {
+            if ($profileName != '') {
+                $profile = IPS_GetVariableProfile($profileName);
+
+                $value = round($value, $profile['Digits']);
+            }
+        };
 
         $value = GetValue($variableID);
-        switch ($presentation['PRESENTATION'] ?? 'No presentation') {
-            case VARIABLE_PRESENTATION_LEGACY:
-                $profileName = $presentation['PROFILE'];
-                if ($profileName != '') {
-                    $profile = IPS_GetVariableProfile($profileName);
-
-                    $value = round($value, $profile['Digits']);
-                }
-                break;
-
-            case VARIABLE_PRESENTATION_SLIDER:
-                $value = round($value, $presentation['DIGITS']);
-                break;
-
-            default:
-                break;
-
+        if (!function_exists('IPS_GetVariablePresentation')) {
+            $profileName = '';
+            if ($targetVariable['VariableCustomProfile'] != '') {
+                $profileName = $targetVariable['VariableCustomProfile'];
+            } else {
+                $profileName = $targetVariable['VariableProfile'];
+            }
+            $legacyValue($profileName);
+        } else {
+            $presentation = IPS_GetVariablePresentation($variableID);
+    
+            switch ($presentation['PRESENTATION'] ?? 'No presentation') {
+                case VARIABLE_PRESENTATION_LEGACY:
+                    $legacyValue($presentation['PROFILE']);
+                    break;
+    
+                case VARIABLE_PRESENTATION_SLIDER:
+                    $value = round($value, $presentation['DIGITS']);
+                    break;
+    
+                default:
+                    break;
+    
+            }
+            return $value;
         }
-        return $value;
     }
 }
 

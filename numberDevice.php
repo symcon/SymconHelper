@@ -26,38 +26,48 @@ trait HelperGetNumberDevice
         }
 
         $targetVariable = IPS_GetVariable($variableID);
-
-        $presentation = IPS_GetVariablePresentation($variableID);
-        if (empty($presentation)) {
-            return false;
-        }
-
         $value = GetValue($variableID);
-        switch ($presentation['PRESENTATION']) {
-            case VARIABLE_PRESENTATION_LEGACY:
-                $profileName = $presentation['PROFILE'];
+        $legacyValue = function ($profileName) use ($value, $targetVariable)
+        {
+            if (($targetVariable['VariableType'] == 2 /* Float */) && ($profileName != '')) {
+                $profile = IPS_GetVariableProfile($profileName);
+                $value = round($value, $profile['Digits']);
+            }
 
-                if (($targetVariable['VariableType'] == 2 /* Float */) && ($profileName != '')) {
-                    $profile = IPS_GetVariableProfile($profileName);
-
-                    $value = round($value, $profile['Digits']);
-                }
-
-                return $value;
-
-            case VARIABLE_PRESENTATION_SLIDER:
-                if (($targetVariable['VariableType'] == 2 /* Float */)) {
-                    $value = round($value, $presentation['DIGITS']);
-                }
-                return $value;
-
-            case VARIABLE_PRESENTATION_ENUMERATION:
-                return $value;
-
-            default:
+            return $value;
+        };
+        if (!function_exists('IPS_GetVariablePresentation')) {
+            $profileName = '';
+            if ($targetVariable['VariableCustomProfile'] != '') {
+                $profileName = $targetVariable['VariableCustomProfile'] ?? '';
+            } else {
+                $profileName = $targetVariable['VariableProfile'] ?? '';
+            }
+            return $legacyValue($profileName);
+        } else {
+            $presentation = IPS_GetVariablePresentation($variableID);
+            if (empty($presentation)) {
                 return false;
+            }
+    
+            switch ($presentation['PRESENTATION']) {
+                case VARIABLE_PRESENTATION_LEGACY:
+                    return $legacyValue($presentation['PROFILE']);
+    
+                    // No break. Add additional comment above this line if intentional
+                case VARIABLE_PRESENTATION_SLIDER:
+                    if (($targetVariable['VariableType'] == 2 /* Float */)) {
+                        $value = round($value, $presentation['DIGITS']);
+                    }
+                    return $value;
+    
+                case VARIABLE_PRESENTATION_ENUMERATION:
+                    return $value;
+    
+                default:
+                    return false;
+            }
         }
-
     }
 }
 
