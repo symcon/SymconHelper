@@ -201,7 +201,7 @@ trait HelperDimDevice
         $maxValue = 100;
         $reversed = false;
 
-        $legacyCheck = function ($profileName) use (&$minValue, &$maxValue)
+        $legacyCheck = function ($profileName) use (&$minValue, &$maxValue, &$reversed)
         {
             if (!IPS_VariableProfileExists($profileName)) {
                 return false;
