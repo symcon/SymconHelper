@@ -154,7 +154,7 @@ trait HelperDimDevice
             return 0;
         }
 
-        $value = ((GetValue($variableID) - $minValue) / ($maxValue - $minValue)) * 100;
+        $value = round(((GetValue($variableID) - $minValue) / ($maxValue - $minValue)) * 100, 5);
 
         // Revert value for reversed profile
         if ($reversed) {
@@ -265,6 +265,6 @@ trait HelperDimDevice
             return false;
         }
 
-        return (max(0, min($value, 100)) / 100) * ($maxValue - $minValue) + $minValue;
+        return round((max(0, min($value, 100)) / 100) * ($maxValue - $minValue) + $minValue, 5);
     }
 }
