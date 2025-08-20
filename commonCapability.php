@@ -36,6 +36,20 @@ abstract class CommonCapability
 
             $targetVariable = IPS_GetVariable($variableID);
             $presentation = IPS_GetVariablePresentation($variableID);
+            if (!array_key_exists('PRESENTATION', $presentation)) {
+                if (HasAction($variableID)) {
+                    if ($targetVariable['VariableType'] == VARIABLETYPE_BOOLEAN) {
+                        $presentation['PRESENTATION'] = VARIABLE_PRESENTATION_SWITCH;
+                        $presentation['USAGE_TYPE'] = 0;
+                    }
+                    else {
+                        $presentation['PRESENTATION'] = VARIABLE_PRESENTATION_VALUE_INPUT;
+                    }
+                }
+                else {
+                    $presentation['PRESENTATION'] = VARIABLE_PRESENTATION_VALUE_PRESENTATION;
+                }
+            }
             $profileName = '';
             if ($targetVariable['VariableCustomProfile'] != '') {
                 $profileName = $targetVariable['VariableCustomProfile'];
