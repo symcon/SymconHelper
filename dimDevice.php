@@ -45,6 +45,12 @@ trait HelperDimDevice
             $presentation = IPS_GetVariablePresentation($variableID);
 
             switch ($presentation['PRESENTATION'] ?? 'Invalid presentation') {
+                case VARIABLE_PRESENTATION_SHUTTER:
+                    if (($presentation['CLOSE_INSIDE_VALUE'] - $presentation['OPEN_OUTSIDE_VALUE']) <= 0) {
+                        return 'Presentation not dimmable';
+                    }
+                    break;
+
                 case VARIABLE_PRESENTATION_SLIDER:
                 case VARIABLE_PRESENTATION_VALUE_PRESENTATION:
                     if (($presentation['MAX'] - $presentation['MIN']) <= 0) {
@@ -140,6 +146,12 @@ trait HelperDimDevice
                 $reversed = false;
                 $minValue = $presentation['MIN'];
                 $maxValue = $presentation['MAX'];
+                break;
+
+            case VARIABLE_PRESENTATION_SHUTTER:
+                $reversed = false;
+                $minValue = $presentation['OPEN_OUTSIDE_VALUE'];
+                $maxValue = $presentation['CLOSE_INSIDE_VALUE'];
                 break;
 
             default:
@@ -245,6 +257,11 @@ trait HelperDimDevice
                 case VARIABLE_PRESENTATION_VALUE_PRESENTATION:
                     $minValue = $presentation['MIN'];
                     $maxValue = $presentation['MAX'];
+                    break;
+
+                case VARIABLE_PRESENTATION_SHUTTER:
+                    $minValue = $presentation['OPEN_OUTSIDE_VALUE'];
+                    $maxValue = $presentation['CLOSE_INSIDE_VALUE'];
                     break;
 
                 default:
