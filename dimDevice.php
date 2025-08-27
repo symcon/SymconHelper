@@ -152,6 +152,12 @@ trait HelperDimDevice
                 $reversed = false;
                 $minValue = $presentation['OPEN_OUTSIDE_VALUE'];
                 $maxValue = $presentation['CLOSE_INSIDE_VALUE'];
+                if ($minValue > $maxValue) {
+                    $reversed = true;
+                    $k = $minValue;
+                    $minValue = $maxValue;
+                    $maxValue = $k;
+                }
                 break;
 
             default:
@@ -262,6 +268,12 @@ trait HelperDimDevice
                 case VARIABLE_PRESENTATION_SHUTTER:
                     $minValue = $presentation['OPEN_OUTSIDE_VALUE'];
                     $maxValue = $presentation['CLOSE_INSIDE_VALUE'];
+                    if ($minValue > $maxValue) {
+                        $reversed = true;
+                        $k = $minValue;
+                        $minValue = $maxValue;
+                        $maxValue = $k;
+                    }
                     break;
 
                 default:
