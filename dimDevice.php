@@ -46,7 +46,7 @@ trait HelperDimDevice
 
             switch ($presentation['PRESENTATION'] ?? 'Invalid presentation') {
                 case VARIABLE_PRESENTATION_SHUTTER:
-                    if (($presentation['CLOSE_INSIDE_VALUE'] - $presentation['OPEN_OUTSIDE_VALUE']) <= 0) {
+                    if ($presentation['CLOSE_INSIDE_VALUE'] === $presentation['OPEN_OUTSIDE_VALUE']) {
                         return 'Presentation not dimmable';
                     }
                     break;
