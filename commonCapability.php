@@ -109,4 +109,9 @@ abstract class CommonCapability
     {
         return false;
     }
+
+    protected function getSupportedPresentations()
+    {
+        return false;
+    }
 }
