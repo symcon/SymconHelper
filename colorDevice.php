@@ -551,12 +551,12 @@ trait HelperColorDevice
                 return self::cmykToHex($decodedValue['c'], $decodedValue['m'], $decodedValue['y'], $decodedValue['k']);
 
             case 2: // HSV = HSB
-                // We want to reuse existing code
-                $rgb = self::hsbToRGB($decodedValue['h'], $decodedValue['s'], $decodedValue['v']);
-                throw new Exception($decodedValue, $rgb);
+                // We want to reuse existing code. Saturation and value are encoded as 0-100, but hsbToRGB expects 0-1
+                return self::hsbToRGB($decodedValue['h'], $decodedValue['s'] / 100, $decodedValue['v'] / 100);
 
             case 3: // HSL
-                return self::hslToRGB($decodedValue['h'], $decodedValue['s'], $decodedValue['l']);
+                // Saturation and lightness are encoded as 0-100, but hslToRGB expects 0-1
+                return self::hslToRGB($decodedValue['h'], $decodedValue['s'] / 100, $decodedValue['l'] / 100);
 
             default:
                 throw new Exception("Unknown encoding: $encoding");
