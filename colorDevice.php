@@ -107,6 +107,10 @@ trait HelperColorDevice
                         $rgbValue = GetValueInteger($variableID);
                         break;
                     } elseif ($targetVariable['VariableType'] == VARIABLETYPE_STRING) {
+                        //xy carries chromaticity only, so writing a computed brightness would be a silent no-op
+                        if (($presentation['ENCODING'] ?? 0) == 4 /* xy */) {
+                            return false;
+                        }
                         $rgbValue = self::encodedStringToRGB(GetValueString($variableID), $presentation['ENCODING']);
                         break;
                     } else {
@@ -150,10 +154,16 @@ trait HelperColorDevice
 
     private static function setColorBrightness($variableID, $brightness)
     {
-        return self::colorDevice($variableID, self::computeColorBrightness($variableID, $brightness));
+        $value = self::computeColorBrightness($variableID, $brightness);
+
+        if ($value === false) {
+            return false;
+        }
+
+        return self::colorDevice($variableID, $value);
     }
 
-    private static function getColorCompatibility($variableID)
+    private static function getColorCompatibility($variableID, $hasSeparateBrightness = false)
     {
         if (!IPS_VariableExists($variableID)) {
             return 'Missing';
@@ -200,6 +210,10 @@ trait HelperColorDevice
                     if (!in_array($variableType, [VARIABLETYPE_INTEGER, VARIABLETYPE_STRING])) {
                         return 'Integer or String required';
                     }
+                    //xy carries chromaticity only, so brightness needs to live in a separate variable
+                    if ($variableType == VARIABLETYPE_STRING && ($presentation['ENCODING'] ?? 0) == 4 /* xy */ && !$hasSeparateBrightness) {
+                        return 'Separate brightness required for xy encoding';
+                    }
                     break;
 
                 default:
@@ -211,7 +225,21 @@ trait HelperColorDevice
         return 'OK';
     }
 
-    private static function getColorValue($variableID)
+    //If $brightness (0-100) is set, the stored chromaticity is returned scaled to that brightness.
+    //This is required for the xy encoding, which carries no brightness at all, but works for every encoding
+    private static function getColorValue($variableID, $brightness = null)
+    {
+        $value = self::getRawColorValue($variableID);
+
+        if ($brightness === null) {
+            return $value;
+        }
+
+        $hsb = self::rgbToHSB($value);
+        return self::hsbToRGB($hsb['hue'], $hsb['saturation'], max(0.0, min(100.0, $brightness)) / 100);
+    }
+
+    private static function getRawColorValue($variableID)
     {
         if (!IPS_VariableExists($variableID)) {
             return 0;
@@ -535,6 +563,9 @@ trait HelperColorDevice
                     'l' => round($l * 100)
                 ]);
 
+            case 4: // xy
+                return json_encode(self::rgbToXY($r, $g, $b));
+
             default:
                 throw new Exception("Unknown color encoding $encoding");
         }
@@ -558,9 +589,81 @@ trait HelperColorDevice
                 // Saturation and lightness are encoded as 0-100, but hslToRGB expects 0-1
                 return self::hslToRGB($decodedValue['h'], $decodedValue['s'] / 100, $decodedValue['l'] / 100);
 
+            case 4: // xy
+                return self::xyToRGB($decodedValue['x'], $decodedValue['y']);
+
             default:
                 throw new Exception("Unknown encoding: $encoding");
                 break;
         }
+    }
+
+    private static function rgbToXY($r, $g, $b)
+    {
+        // sRGB to linear RGB
+        $inverseGamma = function ($value)
+        {
+            $value /= 255;
+            return ($value <= 0.04045) ? $value / 12.92 : pow(($value + 0.055) / 1.055, 2.4);
+        };
+
+        $r = $inverseGamma($r);
+        $g = $inverseGamma($g);
+        $b = $inverseGamma($b);
+
+        // Linear RGB to XYZ (sRGB, D65)
+        $x = $r * 0.4124 + $g * 0.3576 + $b * 0.1805;
+        $y = $r * 0.2126 + $g * 0.7152 + $b * 0.0722;
+        $z = $r * 0.0193 + $g * 0.1192 + $b * 0.9505;
+
+        $sum = $x + $y + $z;
+
+        // Black has no chromaticity. Use the D65 white point
+        if ($sum == 0) {
+            return ['x' => 0.3127, 'y' => 0.3290];
+        }
+
+        return ['x' => round($x / $sum, 4), 'y' => round($y / $sum, 4)];
+    }
+
+    private static function xyToRGB($x, $y)
+    {
+        // xy carries chromaticity only, so we return the brightest in-gamut color for it
+        if ($y <= 0) {
+            return 0;
+        }
+
+        // xyY to XYZ with Y = 1
+        $X = $x / $y;
+        $Y = 1.0;
+        $Z = (1 - $x - $y) / $y;
+
+        // XYZ to linear RGB (sRGB, D65)
+        $r = $X * 3.2406 + $Y * -1.5372 + $Z * -0.4986;
+        $g = $X * -0.9689 + $Y * 1.8758 + $Z * 0.0415;
+        $b = $X * 0.0557 + $Y * -0.2040 + $Z * 1.0570;
+
+        // Clamp chromaticities which are outside of the sRGB gamut
+        $r = max(0, $r);
+        $g = max(0, $g);
+        $b = max(0, $b);
+
+        // Normalize to full brightness
+        $max = max($r, $g, $b);
+        if ($max == 0) {
+            return 0;
+        }
+        $r /= $max;
+        $g /= $max;
+        $b /= $max;
+
+        // Linear RGB to sRGB
+        $gamma = function ($value)
+        {
+            $value = ($value <= 0.0031308) ? $value * 12.92 : 1.055 * pow($value, 1 / 2.4) - 0.055;
+            return intval(round($value * 255));
+        };
+
+        return self::rgbToHex($gamma($r), $gamma($g), $gamma($b));
     }
 }
