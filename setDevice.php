@@ -14,8 +14,6 @@ trait HelperSetDevice
             return false;
         }
 
-        $targetVariable = IPS_GetVariable($variableID);
-
         return RequestActionEx($variableID, $value, 'VoiceControl');
     }
 }
