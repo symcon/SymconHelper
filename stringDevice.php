@@ -12,7 +12,7 @@ trait HelperGetStringDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        if ($targetVariable['VariableType'] != 3 /* String */) {
+        if ($targetVariable['VariableType'] != VARIABLETYPE_STRING) {
             return 'String required';
         }
 
@@ -39,17 +39,11 @@ trait HelperSetStringDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        if ($targetVariable['VariableType'] != 3 /* String */) {
+        if ($targetVariable['VariableType'] != VARIABLETYPE_STRING) {
             return 'String required';
         }
 
-        if ($targetVariable['VariableCustomAction'] !== 0) {
-            $profileAction = $targetVariable['VariableCustomAction'];
-        } else {
-            $profileAction = $targetVariable['VariableAction'];
-        }
-
-        if (!($profileAction > 10000)) {
+        if (!HasAction($variableID)) {
             return 'Action required';
         }
 
@@ -69,10 +63,6 @@ trait HelperSetStringDevice
         $targetVariable = IPS_GetVariable($variableID);
 
         if ($targetVariable['VariableType'] != VARIABLETYPE_STRING) {
-            return false;
-        }
-
-        if (!is_string($value)) {
             return false;
         }
 

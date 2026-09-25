@@ -1,11 +1,15 @@
 <?php
 
 declare(strict_types=1);
-define('PREVIOUS', 0);
-define('STOP', 1);
-define('PLAY', 2);
-define('PAUSE', 3);
-define('NEXT', 4);
+
+interface HelperPlaybackValues
+{
+    const PREVIOUS = 0;
+    const STOP = 1;
+    const PLAY = 2;
+    const PAUSE = 3;
+    const NEXT = 4;
+}
 
 trait HelperPlaybackDevice
 {
@@ -17,17 +21,11 @@ trait HelperPlaybackDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        if ($targetVariable['VariableType'] != 1 /* Integer */) {
+        if ($targetVariable['VariableType'] != VARIABLETYPE_INTEGER) {
             return 'Integer required';
         }
 
-        if ($targetVariable['VariableCustomAction'] !== 0) {
-            $profileAction = $targetVariable['VariableCustomAction'];
-        } else {
-            $profileAction = $targetVariable['VariableAction'];
-        }
-
-        if (!($profileAction > 10000)) {
+        if (!HasAction($variableID)) {
             return 'Action required';
         }
 
@@ -61,7 +59,7 @@ trait HelperPlaybackDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        if ($targetVariable['VariableType'] != 1 /* Integer */) {
+        if ($targetVariable['VariableType'] != VARIABLETYPE_INTEGER) {
             return false;
         }
 
@@ -70,27 +68,27 @@ trait HelperPlaybackDevice
 
     private static function activatePrevious($variableID)
     {
-        return self::activateCommand($variableID, PREVIOUS);
+        return self::activateCommand($variableID, HelperPlaybackValues::PREVIOUS);
     }
 
     private static function activatePlay($variableID)
     {
-        return self::activateCommand($variableID, PLAY);
+        return self::activateCommand($variableID, HelperPlaybackValues::PLAY);
     }
 
     private static function activatePause($variableID)
     {
-        return self::activateCommand($variableID, PAUSE);
+        return self::activateCommand($variableID, HelperPlaybackValues::PAUSE);
     }
 
     private static function activateStop($variableID)
     {
-        return self::activateCommand($variableID, STOP);
+        return self::activateCommand($variableID, HelperPlaybackValues::STOP);
     }
 
     private static function activateNext($variableID)
     {
-        return self::activateCommand($variableID, NEXT);
+        return self::activateCommand($variableID, HelperPlaybackValues::NEXT);
     }
 
     private static function supportsPreviousNext($variableID)

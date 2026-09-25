@@ -20,8 +20,8 @@ trait HelperAssociationDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        if ($targetVariable['VariableType'] != 1 /* Integer */) {
-            return 'Int required';
+        if ($targetVariable['VariableType'] != VARIABLETYPE_INTEGER) {
+            return 'Integer required';
         }
 
         $checkLegacy = function ($profileName)
@@ -108,7 +108,7 @@ trait HelperAssociationDevice
                     break;
 
                 default:
-                    return 'Unknown presentation';
+                    return 'Unsupported presentation';
             }
         }
 
@@ -160,9 +160,9 @@ trait HelperAssociationDevice
             $profileName = '';
             $targetVariable = IPS_GetVariable($variableID);
             if ($targetVariable['VariableCustomProfile'] != '') {
-                $profileName = $targetVariable['VariableCustomProfile'] ?? '';
+                $profileName = $targetVariable['VariableCustomProfile'];
             } else {
-                $profileName = $targetVariable['VariableProfile'] ?? '';
+                $profileName = $targetVariable['VariableProfile'];
             }
             return $legacyValue($profileName);
         } else {
@@ -273,7 +273,9 @@ trait HelperAssociationDevice
             $currentValue--;
         }
 
-        $newValue = ($currentValue + $increment) % count($associations);
+        // Double modulo, so negative increments wrap around properly as well
+        $count = count($associations);
+        $newValue = ((($currentValue + $increment) % $count) + $count) % $count;
 
         if ($oneBased) {
             $newValue++;
@@ -297,9 +299,9 @@ trait HelperAssociationDevice
             $profileName = '';
             $targetVariable = IPS_GetVariable($variableID);
             if ($targetVariable['VariableCustomProfile'] != '') {
-                $profileName = $targetVariable['VariableCustomProfile'] ?? '';
+                $profileName = $targetVariable['VariableCustomProfile'];
             } else {
-                $profileName = $targetVariable['VariableProfile'] ?? '';
+                $profileName = $targetVariable['VariableProfile'];
             }
             $legacyAssociations = $getLegacyAssociations($profileName);
             if ($legacyAssociations === false) {

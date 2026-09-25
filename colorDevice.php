@@ -208,7 +208,7 @@ trait HelperColorDevice
 
                 case VARIABLE_PRESENTATION_COLOR:
                     if (!in_array($variableType, [VARIABLETYPE_INTEGER, VARIABLETYPE_STRING])) {
-                        return 'Integer or String required';
+                        return 'Integer/String required';
                     }
                     //xy carries chromaticity only, so brightness needs to live in a separate variable
                     if ($variableType == VARIABLETYPE_STRING && ($presentation['ENCODING'] ?? 0) == 4 /* xy */ && !$hasSeparateBrightness) {
@@ -217,7 +217,7 @@ trait HelperColorDevice
                     break;
 
                 default:
-                    return 'Presentation Legacy or Color required';
+                    return 'Unsupported presentation';
 
             }
         }

@@ -13,7 +13,7 @@ trait HelperSwitchDevice
         $targetVariable = IPS_GetVariable($variableID);
 
         if ($targetVariable['VariableType'] != VARIABLETYPE_BOOLEAN) {
-            return 'Bool required';
+            return 'Boolean required';
         }
 
         if ($requireAction && !HasAction($variableID)) {
@@ -67,9 +67,7 @@ trait HelperSwitchDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        if ($targetVariable['VariableType'] == VARIABLETYPE_BOOLEAN) {
-            $value = boolval($value);
-        } else {
+        if ($targetVariable['VariableType'] != VARIABLETYPE_BOOLEAN) {
             return false;
         }
 

@@ -13,7 +13,7 @@ trait HelperGetNumberDevice
         $targetVariable = IPS_GetVariable($variableID);
 
         if (!in_array($targetVariable['VariableType'], [VARIABLETYPE_INTEGER, VARIABLETYPE_FLOAT])) {
-            return 'Int/Float required';
+            return 'Integer/Float required';
         }
 
         return 'OK';
@@ -29,7 +29,7 @@ trait HelperGetNumberDevice
         $value = GetValue($variableID);
         $legacyValue = function ($profileName) use ($value, $targetVariable)
         {
-            if (($targetVariable['VariableType'] == 2 /* Float */) && ($profileName != '') && IPS_VariableProfileExists($profileName)) {
+            if (($targetVariable['VariableType'] == VARIABLETYPE_FLOAT) && ($profileName != '') && IPS_VariableProfileExists($profileName)) {
                 $profile = IPS_GetVariableProfile($profileName);
                 $value = round($value, $profile['Digits']);
             }
@@ -39,9 +39,9 @@ trait HelperGetNumberDevice
         if (!function_exists('IPS_GetVariablePresentation')) {
             $profileName = '';
             if ($targetVariable['VariableCustomProfile'] != '') {
-                $profileName = $targetVariable['VariableCustomProfile'] ?? '';
+                $profileName = $targetVariable['VariableCustomProfile'];
             } else {
-                $profileName = $targetVariable['VariableProfile'] ?? '';
+                $profileName = $targetVariable['VariableProfile'];
             }
             return $legacyValue($profileName);
         } else {
@@ -56,7 +56,7 @@ trait HelperGetNumberDevice
     
                     // No break. Add additional comment above this line if intentional
                 case VARIABLE_PRESENTATION_SLIDER:
-                    if (($targetVariable['VariableType'] == 2 /* Float */)) {
+                    if (($targetVariable['VariableType'] == VARIABLETYPE_FLOAT)) {
                         $value = round($value, $presentation['DIGITS']);
                     }
                     return $value;
@@ -83,7 +83,7 @@ trait HelperSetNumberDevice
         $targetVariable = IPS_GetVariable($variableID);
 
         if (!in_array($targetVariable['VariableType'], [VARIABLETYPE_INTEGER, VARIABLETYPE_FLOAT])) {
-            return 'Int/Float required';
+            return 'Integer/Float required';
         }
 
         if (!HasAction($variableID)) {
@@ -106,10 +106,6 @@ trait HelperSetNumberDevice
         $targetVariable = IPS_GetVariable($variableID);
 
         if (!in_array($targetVariable['VariableType'], [VARIABLETYPE_INTEGER, VARIABLETYPE_FLOAT])) {
-            return false;
-        }
-
-        if (!(is_int($value) || is_float($value))) {
             return false;
         }
 

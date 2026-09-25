@@ -12,7 +12,7 @@ trait HelperGetFloatDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        if ($targetVariable['VariableType'] != 2 /* Float */) {
+        if ($targetVariable['VariableType'] != VARIABLETYPE_FLOAT) {
             return 'Float required';
         }
 
@@ -101,10 +101,6 @@ trait HelperSetFloatDevice
         }
 
         if ($targetVariable['VariableType'] != VARIABLETYPE_FLOAT) {
-            return false;
-        }
-
-        if (!(is_int($value) || is_float($value))) {
             return false;
         }
 

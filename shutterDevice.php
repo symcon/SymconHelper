@@ -1,8 +1,12 @@
 <?php
 
 declare(strict_types=1);
-define('OPEN', 0);
-define('CLOSE', 4);
+
+interface HelperShutterValues
+{
+    const OPEN = 0;
+    const CLOSE = 4;
+}
 
 trait HelperShutterDevice
 {
@@ -14,7 +18,7 @@ trait HelperShutterDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        if ($targetVariable['VariableType'] != 1 /* Integer */) {
+        if ($targetVariable['VariableType'] != VARIABLETYPE_INTEGER) {
             return 'Integer required';
         }
 
@@ -39,7 +43,7 @@ trait HelperShutterDevice
                 return 'Presentation required';
             }
 
-            if ($presentation['PRESENTATION'] != VARIABLE_PRESENTATION_LEGACY || ($presentation['PRESENTATION'] == VARIABLE_PRESENTATION_LEGACY && !in_array($presentation['PROFILE'], ['~ShutterMoveStop', '~ShutterMoveStep']))) {
+            if (($presentation['PRESENTATION'] != VARIABLE_PRESENTATION_LEGACY) || !in_array($presentation['PROFILE'], ['~ShutterMoveStop', '~ShutterMoveStep'])) {
                 return '~ShutterMoveStop or ~ShutterMoveStep profile required';
             }
         }
@@ -61,7 +65,7 @@ trait HelperShutterDevice
 
         $value = GetValueInteger($variableID);
 
-        return $value == OPEN;
+        return $value == HelperShutterValues::OPEN;
     }
 
     private static function setShutterOpen($variableID, $value)
@@ -70,17 +74,17 @@ trait HelperShutterDevice
             return false;
         }
 
-        $targetVariable = IPS_GetVariable($variableID);
-
         if (!HasAction($variableID)) {
             return false;
         }
 
-        if ($targetVariable['VariableType'] != 1 /* Integer */) {
+        $targetVariable = IPS_GetVariable($variableID);
+
+        if ($targetVariable['VariableType'] != VARIABLETYPE_INTEGER) {
             return false;
         }
 
-        $triggerValue = $value ? OPEN : CLOSE;
+        $triggerValue = $value ? HelperShutterValues::OPEN : HelperShutterValues::CLOSE;
 
         return RequestActionEx($variableID, $triggerValue, 'VoiceControl');
     }

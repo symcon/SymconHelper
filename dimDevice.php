@@ -12,8 +12,8 @@ trait HelperDimDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        if ($targetVariable['VariableType'] != 1 /* Integer */ && $targetVariable['VariableType'] != 2 /* Float */) {
-            return 'Int/Float required';
+        if ($targetVariable['VariableType'] != VARIABLETYPE_INTEGER && $targetVariable['VariableType'] != VARIABLETYPE_FLOAT) {
+            return 'Integer/Float required';
         }
 
         $checkLegacy = function () use ($targetVariable)
@@ -70,13 +70,7 @@ trait HelperDimDevice
             }
         }
 
-        if ($targetVariable['VariableCustomAction'] != 0) {
-            $profileAction = $targetVariable['VariableCustomAction'];
-        } else {
-            $profileAction = $targetVariable['VariableAction'];
-        }
-
-        if ($requireAction && !($profileAction > 10000)) {
+        if ($requireAction && !HasAction($variableID)) {
             return 'Action required';
         }
 
@@ -197,16 +191,6 @@ trait HelperDimDevice
 
         if (!HasAction($variableID)) {
             return false;
-        }
-
-        // percentToAbsolute already verifies that the variable exists
-        $targetVariable = IPS_GetVariable($variableID);
-
-        if ($targetVariable['VariableType'] === VARIABLETYPE_INTEGER) {
-            $absoluteValue = intval($absoluteValue);
-        }
-        else {
-            $absoluteValue = floatval($absoluteValue);
         }
 
         return RequestActionEx($variableID, $absoluteValue, 'VoiceControl');
