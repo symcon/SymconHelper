@@ -29,7 +29,7 @@ trait HelperGetFloatDevice
 
         $legacyValue = function ($profileName) use (&$value)
         {
-            if ($profileName != '') {
+            if (($profileName != '') && IPS_VariableProfileExists($profileName)) {
                 $profile = IPS_GetVariableProfile($profileName);
 
                 $value = round($value, $profile['Digits']);
@@ -44,6 +44,7 @@ trait HelperGetFloatDevice
             } else {
                 $profileName = $targetVariable['VariableProfile'];
             }
+            $legacyValue($profileName);
             return $value;
         } else {
             $presentation = IPS_GetVariablePresentation($variableID);

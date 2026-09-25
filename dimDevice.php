@@ -85,6 +85,10 @@ trait HelperDimDevice
 
     private static function getDimValue($variableID, $overrides = [])
     {
+        if (!IPS_VariableExists($variableID)) {
+            return 0;
+        }
+
         $targetVariable = IPS_GetVariable($variableID);
 
         // Handling for versions prior to presentations being supported
@@ -161,7 +165,8 @@ trait HelperDimDevice
                 break;
 
             default:
-                return false;
+                //Return 0 like every other failure path, so callers can safely do arithmetic on the result
+                return 0;
         }
 
         $maxValue = $overrides['MAX'] ?? $maxValue;

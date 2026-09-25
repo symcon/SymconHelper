@@ -25,6 +25,10 @@ trait HelperSwitchDevice
 
     private static function getSwitchValue($variableID)
     {
+        if (!IPS_VariableExists($variableID)) {
+            return false;
+        }
+
         $targetVariable = IPS_GetVariable($variableID);
 
         $value = GetValue($variableID);

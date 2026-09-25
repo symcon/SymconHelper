@@ -29,7 +29,7 @@ trait HelperGetNumberDevice
         $value = GetValue($variableID);
         $legacyValue = function ($profileName) use ($value, $targetVariable)
         {
-            if (($targetVariable['VariableType'] == 2 /* Float */) && ($profileName != '')) {
+            if (($targetVariable['VariableType'] == 2 /* Float */) && ($profileName != '') && IPS_VariableProfileExists($profileName)) {
                 $profile = IPS_GetVariableProfile($profileName);
                 $value = round($value, $profile['Digits']);
             }
@@ -63,9 +63,10 @@ trait HelperGetNumberDevice
     
                 case VARIABLE_PRESENTATION_ENUMERATION:
                     return $value;
-    
+
                 default:
-                    return false;
+                    //The value of an existing, correctly typed variable is still readable. Only rounding is presentation specific
+                    return $value;
             }
         }
     }
