@@ -2,8 +2,12 @@
 
 declare(strict_types=1);
 
+include_once __DIR__ . '/variablePresentation.php';
+
 trait HelperGetNumberDevice
 {
+    use HelperVariablePresentation;
+
     private static function getGetNumberCompatibility($variableID)
     {
         if (!IPS_VariableExists($variableID)) {
@@ -27,48 +31,13 @@ trait HelperGetNumberDevice
 
         $targetVariable = IPS_GetVariable($variableID);
         $value = GetValue($variableID);
-        $legacyValue = function ($profileName) use ($value, $targetVariable)
-        {
-            if (($targetVariable['VariableType'] == VARIABLETYPE_FLOAT) && ($profileName != '') && IPS_VariableProfileExists($profileName)) {
-                $profile = IPS_GetVariableProfile($profileName);
-                $value = round($value, $profile['Digits']);
-            }
 
-            return $value;
-        };
-        if (!function_exists('IPS_GetVariablePresentation')) {
-            $profileName = '';
-            if ($targetVariable['VariableCustomProfile'] != '') {
-                $profileName = $targetVariable['VariableCustomProfile'];
-            } else {
-                $profileName = $targetVariable['VariableProfile'];
-            }
-            return $legacyValue($profileName);
-        } else {
-            $presentation = IPS_GetVariablePresentation($variableID);
-            if (empty($presentation)) {
-                return false;
-            }
-    
-            switch ($presentation['PRESENTATION']) {
-                case VARIABLE_PRESENTATION_LEGACY:
-                    return $legacyValue($presentation['PROFILE']);
-    
-                    // No break. Add additional comment above this line if intentional
-                case VARIABLE_PRESENTATION_SLIDER:
-                    if (($targetVariable['VariableType'] == VARIABLETYPE_FLOAT)) {
-                        $value = round($value, $presentation['DIGITS']);
-                    }
-                    return $value;
-    
-                case VARIABLE_PRESENTATION_ENUMERATION:
-                    return $value;
-
-                default:
-                    //The value of an existing, correctly typed variable is still readable. Only rounding is presentation specific
-                    return $value;
-            }
+        $presentation = self::resolvePresentation($variableID);
+        if (($presentation !== false) && ($targetVariable['VariableType'] == VARIABLETYPE_FLOAT) && ($presentation['digits'] !== null)) {
+            $value = round($value, $presentation['digits']);
         }
+
+        return $value;
     }
 }
 

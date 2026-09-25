@@ -2,8 +2,12 @@
 
 declare(strict_types=1);
 
+include_once __DIR__ . '/variablePresentation.php';
+
 trait HelperDimDevice
 {
+    use HelperVariablePresentation;
+
     private static function getDimCompatibility($variableID, $requireAction = true)
     {
         if (!IPS_VariableExists($variableID)) {
@@ -16,58 +20,31 @@ trait HelperDimDevice
             return 'Integer/Float required';
         }
 
-        $checkLegacy = function () use ($targetVariable)
-        {
-            $profileName = '';
-            if ($targetVariable['VariableCustomProfile'] != '') {
-                $profileName = $targetVariable['VariableCustomProfile'];
-            } else {
-                $profileName = $targetVariable['VariableProfile'];
-            }
+        $presentation = self::resolvePresentation($variableID);
+        if ($presentation === false) {
+            return 'Presentation required';
+        }
 
-            if (!IPS_VariableProfileExists($profileName)) {
-                return 'Profile required';
-            }
+        switch ($presentation['kind']) {
+            case 'legacy':
+                if (!$presentation['profileExists']) {
+                    return 'Profile required';
+                }
+                if (($presentation['max'] - $presentation['min']) <= 0) {
+                    return 'Profile not dimmable';
+                }
+                break;
 
-            $profile = IPS_GetVariableProfile($profileName);
+            case 'slider':
+            case 'valuePresentation':
+            case 'shutter':
+                if (($presentation['max'] - $presentation['min']) <= 0) {
+                    return 'Presentation not dimmable';
+                }
+                break;
 
-            if (($profile['MaxValue'] - $profile['MinValue']) <= 0) {
-                return 'Profile not dimmable';
-            }
-        };
-
-        if (!function_exists('IPS_GetVariablePresentation')) {
-            $result = $checkLegacy();
-            if (!empty($result)) {
-                return $result;
-            }
-        } else {
-            $presentation = IPS_GetVariablePresentation($variableID);
-
-            switch ($presentation['PRESENTATION'] ?? 'Invalid presentation') {
-                case VARIABLE_PRESENTATION_SHUTTER:
-                    if ($presentation['CLOSE_INSIDE_VALUE'] === $presentation['OPEN_OUTSIDE_VALUE']) {
-                        return 'Presentation not dimmable';
-                    }
-                    break;
-
-                case VARIABLE_PRESENTATION_SLIDER:
-                case VARIABLE_PRESENTATION_VALUE_PRESENTATION:
-                    if (($presentation['MAX'] - $presentation['MIN']) <= 0) {
-                        return 'Presentation not dimmable';
-                    }
-                    break;
-
-                case VARIABLE_PRESENTATION_LEGACY:
-                    $result = $checkLegacy();
-                    if (!empty($result)) {
-                        return $result;
-                    }
-                    break;
-
-                default:
-                    return 'Unsupported presentation';
-            }
+            default:
+                return 'Unsupported presentation';
         }
 
         if ($requireAction && !HasAction($variableID)) {
@@ -79,83 +56,21 @@ trait HelperDimDevice
 
     private static function getDimValue($variableID, $overrides = [])
     {
-        if (!IPS_VariableExists($variableID)) {
+        $presentation = self::resolvePresentation($variableID);
+        if ($presentation === false) {
             return 0;
         }
 
-        $targetVariable = IPS_GetVariable($variableID);
-
-        // Handling for versions prior to presentations being supported
-        if (!function_exists('IPS_GetVariablePresentation')) {
-            if ($targetVariable['VariableCustomProfile'] != '') {
-                $profileName = $targetVariable['VariableCustomProfile'];
-            } else {
-                $profileName = $targetVariable['VariableProfile'];
-            }
-            if (!IPS_VariableProfileExists($profileName)) {
-                return 0;
-            }
-
-            $profile = IPS_GetVariableProfile($profileName);
-
-            $reversed = preg_match('/\.Reversed$/', $profileName);
-            $minValue = $profile['MinValue'];
-            $maxValue = $profile['MaxValue'];
-
-            if (($maxValue - $minValue) <= 0) {
-                return 0;
-            }
-
-            $value = ((GetValue($variableID) - $minValue) / ($maxValue - $minValue)) * 100;
-
-            // Revert value for reversed profile
-            if ($reversed) {
-                $value = 100 - $value;
-            }
-
-            return $value;
-        }
-
-        $presentation = IPS_GetVariablePresentation($variableID);
-        if (empty($presentation)) {
-            return 0;
-        }
-
-        $minValue = 0;
-        $maxValue = 100;
-        $reversed = false;
-
-        switch ($presentation['PRESENTATION']) {
-            case VARIABLE_PRESENTATION_LEGACY:
-                $profileName = $presentation['PROFILE'];
-                if (!IPS_VariableProfileExists($profileName)) {
+        switch ($presentation['kind']) {
+            case 'legacy':
+                if (!$presentation['profileExists']) {
                     return 0;
                 }
-
-                $profile = IPS_GetVariableProfile($profileName);
-
-                $reversed = preg_match('/\.Reversed$/', $profileName);
-                $minValue = $profile['MinValue'];
-                $maxValue = $profile['MaxValue'];
                 break;
 
-            case VARIABLE_PRESENTATION_SLIDER:
-            case VARIABLE_PRESENTATION_VALUE_PRESENTATION:
-                $reversed = false;
-                $minValue = $presentation['MIN'];
-                $maxValue = $presentation['MAX'];
-                break;
-
-            case VARIABLE_PRESENTATION_SHUTTER:
-                $reversed = false;
-                $minValue = $presentation['OPEN_OUTSIDE_VALUE'];
-                $maxValue = $presentation['CLOSE_INSIDE_VALUE'];
-                if ($minValue > $maxValue) {
-                    $reversed = true;
-                    $k = $minValue;
-                    $minValue = $maxValue;
-                    $maxValue = $k;
-                }
+            case 'slider':
+            case 'valuePresentation':
+            case 'shutter':
                 break;
 
             default:
@@ -163,9 +78,9 @@ trait HelperDimDevice
                 return 0;
         }
 
-        $maxValue = $overrides['MAX'] ?? $maxValue;
-        $minValue = $overrides['MIN'] ?? $minValue;
-        $reversed = $overrides['REVERSED'] ?? $reversed;
+        $maxValue = $overrides['MAX'] ?? $presentation['max'];
+        $minValue = $overrides['MIN'] ?? $presentation['min'];
+        $reversed = $overrides['REVERSED'] ?? $presentation['reversed'];
 
         if (($maxValue - $minValue) <= 0) {
             return 0;
@@ -198,82 +113,30 @@ trait HelperDimDevice
 
     private static function percentToAbsolute($variableID, $value, $overrides = [])
     {
-        if (!IPS_VariableExists($variableID)) {
+        $presentation = self::resolvePresentation($variableID);
+        if ($presentation === false) {
             return false;
         }
 
-        $targetVariable = IPS_GetVariable($variableID);
-
-        $minValue = 0;
-        $maxValue = 100;
-        $reversed = false;
-
-        $legacyCheck = function ($profileName) use (&$minValue, &$maxValue, &$reversed)
-        {
-            if (!IPS_VariableProfileExists($profileName)) {
-                return false;
-            }
-
-            // Revert value for reversed profile
-            $reversed = preg_match('/\.Reversed$/', $profileName);
-
-            $profile = IPS_GetVariableProfile($profileName);
-
-            $minValue = $profile['MinValue'];
-            $maxValue = $profile['MaxValue'];
-        };
-
-        if (!function_exists('IPS_GetVariablePresentation')) {
-            $profileName = '';
-            if ($targetVariable['VariableCustomProfile'] != '') {
-                $profileName = $targetVariable['VariableCustomProfile'];
-            } else {
-                $profileName = $targetVariable['VariableProfile'];
-            }
-            $result = $legacyCheck($profileName);
-            if ($result === false) {
-                return false;
-            }
-        } else {
-            $presentation = IPS_GetVariablePresentation($variableID);
-            if (empty($presentation)) {
-                return false;
-            }
-
-            switch ($presentation['PRESENTATION']) {
-                case VARIABLE_PRESENTATION_LEGACY:
-                    $result = $legacyCheck($presentation['PROFILE']);
-                    if ($result === false) {
-                        return false;
-                    }
-                    break;
-
-                case VARIABLE_PRESENTATION_SLIDER:
-                case VARIABLE_PRESENTATION_VALUE_PRESENTATION:
-                    $minValue = $presentation['MIN'];
-                    $maxValue = $presentation['MAX'];
-                    break;
-
-                case VARIABLE_PRESENTATION_SHUTTER:
-                    $minValue = $presentation['OPEN_OUTSIDE_VALUE'];
-                    $maxValue = $presentation['CLOSE_INSIDE_VALUE'];
-                    if ($minValue > $maxValue) {
-                        $reversed = true;
-                        $k = $minValue;
-                        $minValue = $maxValue;
-                        $maxValue = $k;
-                    }
-                    break;
-
-                default:
+        switch ($presentation['kind']) {
+            case 'legacy':
+                if (!$presentation['profileExists']) {
                     return false;
+                }
+                break;
 
-            }
+            case 'slider':
+            case 'valuePresentation':
+            case 'shutter':
+                break;
+
+            default:
+                return false;
         }
 
-        $maxValue = $overrides['MAX'] ?? $maxValue;
-        $minValue = $overrides['MIN'] ?? $minValue;
-        $reversed = $overrides['REVERSED'] ?? $reversed;
+        $maxValue = $overrides['MAX'] ?? $presentation['max'];
+        $minValue = $overrides['MIN'] ?? $presentation['min'];
+        $reversed = $overrides['REVERSED'] ?? $presentation['reversed'];
 
         if ($reversed) {
             $value = 100 - $value;

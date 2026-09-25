@@ -2,8 +2,12 @@
 
 declare(strict_types=1);
 
+include_once __DIR__ . '/variablePresentation.php';
+
 trait HelperSwitchDevice
 {
+    use HelperVariablePresentation;
+
     private static function getSwitchCompatibility($variableID, $requireAction = true)
     {
         if (!IPS_VariableExists($variableID)) {
@@ -29,29 +33,15 @@ trait HelperSwitchDevice
             return false;
         }
 
-        $targetVariable = IPS_GetVariable($variableID);
-
         $value = GetValue($variableID);
 
-        // Handling for versions prior to presentations being supported
-        if (!function_exists('IPS_GetVariablePresentation')) {
-            if ($targetVariable['VariableCustomProfile'] != '') {
-                $profileName = $targetVariable['VariableCustomProfile'];
-            } else {
-                $profileName = $targetVariable['VariableProfile'];
-            }
-            if (preg_match('/\.Reversed$/', $profileName)) {
-                $value = !$value;
-            }
-            return $value;
+        $presentation = self::resolvePresentation($variableID);
+
+        // Revert value for reversed profile
+        if (($presentation !== false) && $presentation['reversed']) {
+            $value = !$value;
         }
-        $presentation = IPS_GetVariablePresentation($variableID);
-        if (($presentation['PRESENTATION'] ?? 'No presentation') === VARIABLE_PRESENTATION_LEGACY) {
-            // Revert value for reversed profile
-            if (preg_match('/\.Reversed$/', $presentation['PROFILE'])) {
-                $value = !$value;
-            }
-        }
+
         return $value;
     }
 
@@ -71,27 +61,13 @@ trait HelperSwitchDevice
             return false;
         }
 
-        $legacyCheck = function ($profileName) use (&$value)
-        {
-            // Revert value for reversed profile
-            if (preg_match('/\.Reversed$/', $profileName)) {
-                $value = !$value;
-            }
-        };
-        if (!function_exists('IPS_GetVariablePresentation')) {
-            $profileName = '';
-            if ($targetVariable['VariableCustomProfile'] != '') {
-                $profileName = $targetVariable['VariableCustomProfile'];
-            } else {
-                $profileName = $targetVariable['VariableProfile'];
-            }
-            $legacyCheck($profileName);
-        } else {
-            $presentation = IPS_GetVariablePresentation($variableID);
-            if (($presentation['PRESENTATION'] ?? 'No presentation') === VARIABLE_PRESENTATION_LEGACY) {
-                $legacyCheck($presentation['PROFILE']);
-            }
+        $presentation = self::resolvePresentation($variableID);
+
+        // Revert value for reversed profile
+        if (($presentation !== false) && $presentation['reversed']) {
+            $value = !$value;
         }
+
         return RequestActionEx($variableID, $value, 'VoiceControl');
     }
 }

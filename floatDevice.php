@@ -2,8 +2,12 @@
 
 declare(strict_types=1);
 
+include_once __DIR__ . '/variablePresentation.php';
+
 trait HelperGetFloatDevice
 {
+    use HelperVariablePresentation;
+
     private static function getGetFloatCompatibility($variableID)
     {
         if (!IPS_VariableExists($variableID)) {
@@ -25,45 +29,14 @@ trait HelperGetFloatDevice
             return false;
         }
 
-        $targetVariable = IPS_GetVariable($variableID);
-
-        $legacyValue = function ($profileName) use (&$value)
-        {
-            if (($profileName != '') && IPS_VariableProfileExists($profileName)) {
-                $profile = IPS_GetVariableProfile($profileName);
-
-                $value = round($value, $profile['Digits']);
-            }
-        };
-
         $value = GetValue($variableID);
-        if (!function_exists('IPS_GetVariablePresentation')) {
-            $profileName = '';
-            if ($targetVariable['VariableCustomProfile'] != '') {
-                $profileName = $targetVariable['VariableCustomProfile'];
-            } else {
-                $profileName = $targetVariable['VariableProfile'];
-            }
-            $legacyValue($profileName);
-            return $value;
-        } else {
-            $presentation = IPS_GetVariablePresentation($variableID);
-    
-            switch ($presentation['PRESENTATION'] ?? 'No presentation') {
-                case VARIABLE_PRESENTATION_LEGACY:
-                    $legacyValue($presentation['PROFILE']);
-                    break;
-    
-                case VARIABLE_PRESENTATION_SLIDER:
-                    $value = round($value, $presentation['DIGITS']);
-                    break;
-    
-                default:
-                    break;
-    
-            }
-            return $value;
+
+        $presentation = self::resolvePresentation($variableID);
+        if (($presentation !== false) && ($presentation['digits'] !== null)) {
+            $value = round($value, $presentation['digits']);
         }
+
+        return $value;
     }
 }
 

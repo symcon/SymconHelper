@@ -2,8 +2,12 @@
 
 declare(strict_types=1);
 
+include_once __DIR__ . '/variablePresentation.php';
+
 trait HelperColorDevice
 {
+    use HelperVariablePresentation;
+
     public static function cmykToHex($c, $m, $y, $k)
     {
         $c = max(0, min(100, $c));
@@ -73,52 +77,38 @@ trait HelperColorDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        $computeLegacy = function () use (&$rgbValue, $variableID, $targetVariable)
-        {
-            if ($targetVariable['VariableType'] != VARIABLETYPE_INTEGER) {
-                return false;
-            }
-
-            $rgbValue = GetValueInteger($variableID);
-        };
-
-        if (!function_exists('IPS_GetVariablePresentation')) {
-            $success = $computeLegacy();
-            if ($success === false) {
-                return false;
-            }
-        } else {
-            $presentation = IPS_GetVariablePresentation($variableID);
-    
-            if (empty($presentation)) {
-                return false;
-            }
-    
-            switch ($presentation['PRESENTATION']) {
-                case VARIABLE_PRESENTATION_LEGACY:
-                    $success = $computeLegacy();
-                    if ($success === false) {
-                        return false;
-                    }
-                    break;
-    
-                case VARIABLE_PRESENTATION_COLOR:
-                    if ($targetVariable['VariableType'] == VARIABLETYPE_INTEGER) {
-                        $rgbValue = GetValueInteger($variableID);
-                        break;
-                    } elseif ($targetVariable['VariableType'] == VARIABLETYPE_STRING) {
-                        //xy carries chromaticity only, so writing a computed brightness would be a silent no-op
-                        if (($presentation['ENCODING'] ?? 0) == 4 /* xy */) {
-                            return false;
-                        }
-                        $rgbValue = self::encodedStringToRGB(GetValueString($variableID), $presentation['ENCODING']);
-                        break;
-                    } else {
-                        return false;
-                    }
-            }
+        $presentation = self::resolvePresentation($variableID);
+        if ($presentation === false) {
+            return false;
         }
 
+        switch ($presentation['kind']) {
+            case 'legacy':
+                if ($targetVariable['VariableType'] != VARIABLETYPE_INTEGER) {
+                    return false;
+                }
+                $rgbValue = GetValueInteger($variableID);
+                break;
+
+            case 'color':
+                if ($targetVariable['VariableType'] == VARIABLETYPE_INTEGER) {
+                    $rgbValue = GetValueInteger($variableID);
+                    break;
+                } elseif ($targetVariable['VariableType'] == VARIABLETYPE_STRING) {
+                    //xy carries chromaticity only, so writing a computed brightness would be a silent no-op
+                    if ($presentation['encoding'] == 4 /* xy */) {
+                        return false;
+                    }
+                    $rgbValue = self::encodedStringToRGB(GetValueString($variableID), $presentation['encoding']);
+                    break;
+                } else {
+                    return false;
+                }
+
+                // No break. Add additional comment above this line if intentional
+            default:
+                return false;
+        }
 
         if (($rgbValue < 0) || ($rgbValue > 0xFFFFFF)) {
             return false;
@@ -176,50 +166,34 @@ trait HelperColorDevice
         $targetVariable = IPS_GetVariable($variableID);
         $variableType = $targetVariable['VariableType'];
 
-        if (!function_exists('IPS_GetVariablePresentation')) {
-            if ($variableType != VARIABLETYPE_INTEGER) {
-                return 'Integer required';
-            }
-            $profileName = '';
-            if ($targetVariable['VariableCustomProfile'] != '') {
-                $profileName = $targetVariable['VariableCustomProfile'];
-            } else {
-                $profileName = $targetVariable['VariableProfile'];
-            }
-            if ($profileName != '~HexColor') {
-                return '~HexColor profile required';
-            }
-        } else {
-            $presentation = IPS_GetVariablePresentation($variableID);
+        $presentation = self::resolvePresentation($variableID);
+        if ($presentation === false) {
+            return 'Presentation required';
+        }
 
-            if (empty($presentation)) {
-                return 'Presentation required';
-            }
+        switch ($presentation['kind']) {
+            case 'legacy':
+                if ($variableType != VARIABLETYPE_INTEGER) {
+                    return 'Integer required';
+                }
+                if ($presentation['profile'] != '~HexColor') {
+                    return '~HexColor profile required';
+                }
+                break;
 
-            switch ($presentation['PRESENTATION']) {
-                case VARIABLE_PRESENTATION_LEGACY:
-                    if ($variableType != VARIABLETYPE_INTEGER) {
-                        return 'Integer required';
-                    }
-                    if ($presentation['PROFILE'] != '~HexColor') {
-                        return '~HexColor profile required';
-                    }
-                    break;
+            case 'color':
+                if (!in_array($variableType, [VARIABLETYPE_INTEGER, VARIABLETYPE_STRING])) {
+                    return 'Integer/String required';
+                }
+                //xy carries chromaticity only, so brightness needs to live in a separate variable
+                if ($variableType == VARIABLETYPE_STRING && $presentation['encoding'] == 4 /* xy */ && !$hasSeparateBrightness) {
+                    return 'Separate brightness required for xy encoding';
+                }
+                break;
 
-                case VARIABLE_PRESENTATION_COLOR:
-                    if (!in_array($variableType, [VARIABLETYPE_INTEGER, VARIABLETYPE_STRING])) {
-                        return 'Integer/String required';
-                    }
-                    //xy carries chromaticity only, so brightness needs to live in a separate variable
-                    if ($variableType == VARIABLETYPE_STRING && ($presentation['ENCODING'] ?? 0) == 4 /* xy */ && !$hasSeparateBrightness) {
-                        return 'Separate brightness required for xy encoding';
-                    }
-                    break;
+            default:
+                return 'Unsupported presentation';
 
-                default:
-                    return 'Unsupported presentation';
-
-            }
         }
 
         return 'OK';
@@ -247,12 +221,16 @@ trait HelperColorDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        $legacyValue = function () use ($targetVariable, $variableID)
-        {
-            if ($targetVariable['VariableType'] != VARIABLETYPE_INTEGER) {
-                return 0;
-            }
+        $presentation = self::resolvePresentation($variableID);
+        if ($presentation === false) {
+            return 0;
+        }
 
+        if (!in_array($presentation['kind'], ['legacy', 'color'])) {
+            return 0;
+        }
+
+        if ($targetVariable['VariableType'] == VARIABLETYPE_INTEGER) {
             $value = GetValueInteger($variableID);
 
             if (($value < 0) || ($value > 0xFFFFFF)) {
@@ -260,37 +238,10 @@ trait HelperColorDevice
             }
 
             return $value;
-        };
-        if (!function_exists('IPS_GetVariablePresentation')) {
-            return $legacyValue();
+        } elseif (($targetVariable['VariableType'] == VARIABLETYPE_STRING) && ($presentation['kind'] == 'color')) {
+            return self::encodedStringToRGB(GetValueString($variableID), $presentation['encoding']);
         } else {
-            $presentation = IPS_GetVariablePresentation($variableID);
-            if (empty($presentation)) {
-                return 0;
-            }
-
-            switch ($presentation['PRESENTATION']) {
-                case VARIABLE_PRESENTATION_LEGACY:
-
-                case VARIABLE_PRESENTATION_COLOR:
-                    if ($targetVariable['VariableType'] == VARIABLETYPE_INTEGER) {
-                        $value = GetValueInteger($variableID);
-
-                        if (($value < 0) || ($value > 0xFFFFFF)) {
-                            return 0;
-                        }
-
-                        return $value;
-                    } elseif ($targetVariable['VariableType'] == VARIABLETYPE_STRING) {
-                        return self::encodedStringToRGB(GetValueString($variableID), $presentation['ENCODING']);
-                    } else {
-                        return 0;
-                    }
-
-                    // No break. Add additional comment above this line if intentional
-                default:
-                    return 0;
-            }
+            return 0;
         }
     }
 
@@ -306,50 +257,41 @@ trait HelperColorDevice
 
         $targetVariable = IPS_GetVariable($variableID);
 
-        if (!function_exists('IPS_GetVariablePresentation')) {
-            if ($targetVariable['VariableType'] != VARIABLETYPE_INTEGER) {
-                return false;
-            }
+        $presentation = self::resolvePresentation($variableID);
+        if ($presentation === false) {
+            return false;
+        }
 
-            if (($value < 0) || ($value > 0xFFFFFF)) {
-                return false;
-            }
-        } else {
-            $presentation = IPS_GetVariablePresentation($variableID);
-            if (empty($presentation)) {
-                return false;
-            }
-            switch ($presentation['PRESENTATION']) {
-                case VARIABLE_PRESENTATION_LEGACY:
-                    if ($targetVariable['VariableType'] != VARIABLETYPE_INTEGER) {
-                        return false;
-                    }
+        switch ($presentation['kind']) {
+            case 'legacy':
+                if ($targetVariable['VariableType'] != VARIABLETYPE_INTEGER) {
+                    return false;
+                }
 
+                if (($value < 0) || ($value > 0xFFFFFF)) {
+                    return false;
+                }
+                break;
+
+            case 'color':
+                if ($targetVariable['VariableType'] == VARIABLETYPE_INTEGER) {
                     if (($value < 0) || ($value > 0xFFFFFF)) {
                         return false;
                     }
                     break;
-
-                case VARIABLE_PRESENTATION_COLOR:
-                    if ($targetVariable['VariableType'] == VARIABLETYPE_INTEGER) {
-                        if (($value < 0) || ($value > 0xFFFFFF)) {
-                            return false;
-                        }
-                        break;
-                    }
-                    if ($targetVariable['VariableType'] == VARIABLETYPE_STRING) {
-                        $red = ($value >> 16) & 0xFF;
-                        $green = ($value >> 8) & 0xFF;
-                        $blue = $value & 0xFF;
-                        $value = self::rgbToJson($red, $green, $blue, $presentation['ENCODING']);
-                    } else {
-                        return false;
-                    }
-                    break;
-
-                default:
+                }
+                if ($targetVariable['VariableType'] == VARIABLETYPE_STRING) {
+                    $red = ($value >> 16) & 0xFF;
+                    $green = ($value >> 8) & 0xFF;
+                    $blue = $value & 0xFF;
+                    $value = self::rgbToJson($red, $green, $blue, $presentation['encoding']);
+                } else {
                     return false;
-            }
+                }
+                break;
+
+            default:
+                return false;
         }
 
         return RequestActionEx($variableID, $value, 'VoiceControl');

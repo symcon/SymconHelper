@@ -3,10 +3,12 @@
 declare(strict_types=1);
 
 include_once __DIR__ . '/numberDevice.php';
+include_once __DIR__ . '/variablePresentation.php';
 
 trait HelperAssociationDevice
 {
     use HelperNumberDevice;
+    use HelperVariablePresentation;
 
     private static function getAssociationCompatibility($variableID)
     {
@@ -24,92 +26,60 @@ trait HelperAssociationDevice
             return 'Integer required';
         }
 
-        $checkLegacy = function ($profileName)
+        $presentation = self::resolvePresentation($variableID);
+        if ($presentation === false) {
+            return 'Presentation required';
+        }
+
+        $checkEnumerated = function ($options, $negativeError, $enumerationError)
         {
-            if (!IPS_VariableProfileExists($profileName)) {
-                return 'Profile required';
-            }
-
-            $profile = IPS_GetVariableProfile($profileName);
-
-            if (($profile['StepSize'] != 0) || (count($profile['Associations']) == 0)) {
-                return 'No association profile';
-            }
-
             // Initialize minimum and maximum one above/below legal maximum
-            $minimumAssociation = count($profile['Associations']) + 1;
-            $maximumAssociation = -1;
-            foreach ($profile['Associations'] as $association) {
-                if ($association['Value'] < 0) {
-                    return 'Negative associations not allowed';
+            $minimumOption = count($options) + 1;
+            $maximumOption = -1;
+            foreach ($options as $option) {
+                if ($option['Value'] < 0) {
+                    return $negativeError;
                 }
 
-                if ($association['Value'] > $maximumAssociation) {
-                    $maximumAssociation = $association['Value'];
+                if ($option['Value'] > $maximumOption) {
+                    $maximumOption = $option['Value'];
                 }
 
-                if ($association['Value'] < $minimumAssociation) {
-                    $minimumAssociation = $association['Value'];
+                if ($option['Value'] < $minimumOption) {
+                    $minimumOption = $option['Value'];
                 }
             }
 
-            if (($maximumAssociation - $minimumAssociation + 1) != count($profile['Associations'])) {
-                return 'Associations not enumerated';
+            if (($maximumOption - $minimumOption + 1) != count($options)) {
+                return $enumerationError;
             }
         };
 
-        if (!function_exists('IPS_GetVariablePresentation')) {
-            $profileName = '';
-            if ($targetVariable['VariableCustomProfile'] != '') {
-                $profileName = $targetVariable['VariableCustomProfile'];
-            } else {
-                $profileName = $targetVariable['VariableProfile'];
-            }
-            $result = $checkLegacy($profileName);
-            if (!empty($result)) {
-                return $result;
-            }
-        } else {
-            $presentation = IPS_GetVariablePresentation($variableID);
-            if (empty($presentation)) {
-                return 'Presentation required';
-            }
+        switch ($presentation['kind']) {
+            case 'legacy':
+                if (!$presentation['profileExists']) {
+                    return 'Profile required';
+                }
 
-            switch ($presentation['PRESENTATION']) {
-                case VARIABLE_PRESENTATION_LEGACY:
-                    $result = $checkLegacy($presentation['PROFILE']);
-                    if (!empty($result)) {
-                        return $result;
-                    }
+                if (($presentation['stepSize'] != 0) || (count($presentation['options']) == 0)) {
+                    return 'No association profile';
+                }
 
-                    break;
-                case VARIABLE_PRESENTATION_ENUMERATION:
-                    $options = json_decode($presentation['OPTIONS'], true);
-                    // Initialize minimum and maximum one above/below legal maximum
-                    $minimumOption = count($options) + 1;
-                    $maximumOption = -1;
-                    foreach ($options as $option) {
-                        if ($option['Value'] < 0) {
-                            return 'Negative option not allowed';
-                        }
+                $result = $checkEnumerated($presentation['options'], 'Negative associations not allowed', 'Associations not enumerated');
+                if (!empty($result)) {
+                    return $result;
+                }
+                break;
 
-                        if ($option['Value'] > $maximumOption) {
-                            $maximumOption = $option['Value'];
-                        }
+            case 'enumeration':
+                $result = $checkEnumerated($presentation['options'], 'Negative option not allowed', 'Options not enumerated');
+                if (!empty($result)) {
+                    return $result;
+                }
+                break;
 
-                        if ($option['Value'] < $minimumOption) {
-                            $minimumOption = $option['Value'];
-                        }
-                    }
-
-                    if (($maximumOption - $minimumOption + 1) != count($options)) {
-                        return 'Options not enumerated';
-                    }
-                    break;
-
-                default:
-                    return 'Unsupported presentation';
-            }
+            default:
+                return 'Unsupported presentation';
         }
 
         return 'OK';
@@ -140,55 +110,16 @@ trait HelperAssociationDevice
             return false;
         }
 
-        $legacyValue = function ($profileName) use ($value, $variableID)
-        {
-            if (!IPS_VariableProfileExists($profileName)) {
-                return false;
-            }
-
-            $profile = IPS_GetVariableProfile($profileName);
-
-            foreach ($profile['Associations'] as $association) {
-                if (strcasecmp($association['Name'], $value) == 0) {
-                    return self::setAssociationNumber($variableID, intval($association['Value']));
-                }
-            }
+        $associations = self::getAssociations($variableID);
+        if (($associations === false) || empty($associations)) {
             return false;
-        };
+        }
 
-        if (!function_exists('IPS_GetVariablePresentation')) {
-            $profileName = '';
-            $targetVariable = IPS_GetVariable($variableID);
-            if ($targetVariable['VariableCustomProfile'] != '') {
-                $profileName = $targetVariable['VariableCustomProfile'];
-            } else {
-                $profileName = $targetVariable['VariableProfile'];
+        $field = self::getAssociationField($variableID);
+        foreach ($associations as $association) {
+            if (strcasecmp($association[$field], $value) == 0) {
+                return self::setAssociationNumber($variableID, intval($association['Value']));
             }
-            return $legacyValue($profileName);
-        } else {
-            $presentation = IPS_GetVariablePresentation($variableID);
-            if (empty($presentation)) {
-                return false;
-            }
-
-            switch ($presentation['PRESENTATION']) {
-                case VARIABLE_PRESENTATION_LEGACY:
-                    return $legacyValue($presentation['PROFILE']);
-
-                case VARIABLE_PRESENTATION_ENUMERATION:
-                    $options = json_decode($presentation['OPTIONS'], true);
-                    foreach ($options as $option) {
-                        if (strcasecmp($option['Caption'], $value) == 0) {
-                            return self::setAssociationNumber($variableID, intval($option['Value']));
-                        }
-                    }
-
-                    break;
-
-                default:
-                    return false;
-            }
-
         }
 
         // Fail, if no association was found
@@ -232,15 +163,7 @@ trait HelperAssociationDevice
 
     private static function isValidAssociationString($variableID, $value)
     {
-
-        $field = 'Name';
-        if (function_exists('IPS_GetVariablePresentation')) {
-            $presentation = IPS_GetVariablePresentation($variableID);
-            if (($presentation['PRESENTATION'] ?? VARIABLE_PRESENTATION_LEGACY) != VARIABLE_PRESENTATION_LEGACY) {
-                $field = 'Caption';
-            }
-        }
-        return self::isValidAssociation($variableID, $value, $field);
+        return self::isValidAssociation($variableID, $value, self::getAssociationField($variableID));
     }
 
     private static function incrementAssociation($variableID, $increment)
@@ -284,56 +207,30 @@ trait HelperAssociationDevice
         return self::setAssociationNumber($variableID, $newValue);
     }
 
-    private static function getAssociations($variableID)
+    //Legacy associations use 'Name' as their caption field, while enumeration options use 'Caption'
+    private static function getAssociationField($variableID)
     {
-        $associations = [];
-        $getLegacyAssociations = function ($profileName)
-        {
-            if (!IPS_VariableProfileExists($profileName)) {
-                return false;
-            }
-            return IPS_GetVariableProfile($profileName)['Associations'];
-        };
+        $presentation = self::resolvePresentation($variableID);
 
-        if (!function_exists('IPS_GetVariablePresentation')) {
-            $profileName = '';
-            $targetVariable = IPS_GetVariable($variableID);
-            if ($targetVariable['VariableCustomProfile'] != '') {
-                $profileName = $targetVariable['VariableCustomProfile'];
-            } else {
-                $profileName = $targetVariable['VariableProfile'];
-            }
-            $legacyAssociations = $getLegacyAssociations($profileName);
-            if ($legacyAssociations === false) {
-                return false;
-            }
-            $associations = $legacyAssociations;
-        } else {
-            $presentation = IPS_GetVariablePresentation($variableID);
-            if (empty($presentation)) {
-                return false;
-            }
-
-            // Legacy associations and options have the same structure so we can handle them basically the same way
-            switch ($presentation['PRESENTATION']) {
-                case VARIABLE_PRESENTATION_LEGACY:
-                    $legacyAssociations = $getLegacyAssociations($presentation['PROFILE']);
-                    if ($legacyAssociations === false) {
-                        return false;
-                    }
-                    $associations = $legacyAssociations;
-
-                    break;
-
-                case VARIABLE_PRESENTATION_ENUMERATION:
-                    $associations = json_decode($presentation['OPTIONS'], true);
-                    break;
-
-                default:
-                    return false;
-            }
+        if (($presentation === false) || ($presentation['kind'] == 'legacy')) {
+            return 'Name';
         }
 
-        return $associations;
+        return 'Caption';
+    }
+
+    // Legacy associations and options have the same structure so we can handle them basically the same way
+    private static function getAssociations($variableID)
+    {
+        $presentation = self::resolvePresentation($variableID);
+        if ($presentation === false) {
+            return false;
+        }
+
+        if (!in_array($presentation['kind'], ['legacy', 'enumeration']) || ($presentation['options'] === null)) {
+            return false;
+        }
+
+        return $presentation['options'];
     }
 }

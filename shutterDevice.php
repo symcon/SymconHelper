@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+include_once __DIR__ . '/variablePresentation.php';
+
 interface HelperShutterValues
 {
     const OPEN = 0;
@@ -10,6 +12,8 @@ interface HelperShutterValues
 
 trait HelperShutterDevice
 {
+    use HelperVariablePresentation;
+
     private static function getShutterCompatibility($variableID)
     {
         if (!IPS_VariableExists($variableID)) {
@@ -26,26 +30,13 @@ trait HelperShutterDevice
             return 'Action required';
         }
 
-        if (!function_exists('IPS_GetVariablePresentation')) {
-            $profileName = '';
-            if ($targetVariable['VariableCustomProfile'] != '') {
-                $profileName = $targetVariable['VariableCustomProfile'];
-            } else {
-                $profileName = $targetVariable['VariableProfile'];
-            }
+        $presentation = self::resolvePresentation($variableID);
+        if ($presentation === false) {
+            return 'Presentation required';
+        }
 
-            if (!in_array($profileName, ['~ShutterMoveStop', '~ShutterMoveStep'])) {
-                return '~ShutterMoveStop or ~ShutterMoveStep profile required';
-            }
-        } else {
-            $presentation = IPS_GetVariablePresentation($variableID);
-            if (empty($presentation)) {
-                return 'Presentation required';
-            }
-
-            if (($presentation['PRESENTATION'] != VARIABLE_PRESENTATION_LEGACY) || !in_array($presentation['PROFILE'], ['~ShutterMoveStop', '~ShutterMoveStep'])) {
-                return '~ShutterMoveStop or ~ShutterMoveStep profile required';
-            }
+        if (($presentation['kind'] != 'legacy') || !in_array($presentation['profile'], ['~ShutterMoveStop', '~ShutterMoveStep'])) {
+            return '~ShutterMoveStop or ~ShutterMoveStep profile required';
         }
 
         return 'OK';
