@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+include_once __DIR__ . '/variablePresentation.php';
+
 interface HelperPlaybackValues
 {
     const PREVIOUS = 0;
@@ -13,6 +15,8 @@ interface HelperPlaybackValues
 
 trait HelperPlaybackDevice
 {
+    use HelperVariablePresentation;
+
     private static function getPlaybackCompatibility($variableID)
     {
         if (!IPS_VariableExists($variableID)) {
@@ -29,19 +33,26 @@ trait HelperPlaybackDevice
             return 'Action required';
         }
 
-        if ($targetVariable['VariableCustomProfile'] != '') {
-            $profileName = $targetVariable['VariableCustomProfile'];
-        } else {
-            $profileName = $targetVariable['VariableProfile'];
+        $presentation = self::resolvePresentation($variableID);
+        if ($presentation === false) {
+            return 'Presentation required';
         }
 
-        switch ($profileName) {
-            case '~Playback':
-            case '~PlaybackPreviousNext':
+        switch ($presentation['kind']) {
+            case 'legacy':
+                if (!in_array($presentation['profile'], ['~Playback', '~PlaybackPreviousNext'])) {
+                    return '~Playback profile required';
+                }
+                break;
+
+            case 'enumeration':
+                if (!self::hasPlaybackOptions($presentation['options'], [HelperPlaybackValues::STOP, HelperPlaybackValues::PLAY, HelperPlaybackValues::PAUSE])) {
+                    return 'Options for Stop, Play and Pause required';
+                }
                 break;
 
             default:
-                return '~Playback profile required';
+                return 'Unsupported presentation';
         }
 
         return 'OK';
@@ -93,18 +104,33 @@ trait HelperPlaybackDevice
 
     private static function supportsPreviousNext($variableID)
     {
-        if (!IPS_VariableExists($variableID)) {
+        $presentation = self::resolvePresentation($variableID);
+        if ($presentation === false) {
             return false;
         }
 
-        $targetVariable = IPS_GetVariable($variableID);
+        switch ($presentation['kind']) {
+            case 'legacy':
+                return $presentation['profile'] === '~PlaybackPreviousNext';
 
-        if ($targetVariable['VariableCustomProfile'] != '') {
-            $profileName = $targetVariable['VariableCustomProfile'];
-        } else {
-            $profileName = $targetVariable['VariableProfile'];
+            case 'enumeration':
+                return self::hasPlaybackOptions($presentation['options'], [HelperPlaybackValues::PREVIOUS, HelperPlaybackValues::NEXT]);
+
+            default:
+                return false;
+        }
+    }
+
+    private static function hasPlaybackOptions($options, $values)
+    {
+        $optionValues = array_column($options, 'Value');
+
+        foreach ($values as $value) {
+            if (!in_array($value, $optionValues)) {
+                return false;
+            }
         }
 
-        return $profileName === '~PlaybackPreviousNext';
+        return true;
     }
 }
