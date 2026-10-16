@@ -67,28 +67,29 @@ trait HelperVariablePresentation
             'options'       => null,
         ];
 
-        switch ($presentation['PRESENTATION']) {
+        //Parameters are optional. A presentation without bounds (e.g. a value presentation of a string) is not dimmable
+        switch ($presentation['PRESENTATION'] ?? '') {
             case VARIABLE_PRESENTATION_LEGACY:
-                return $legacyPresentation($presentation['PROFILE']);
+                return $legacyPresentation($presentation['PROFILE'] ?? '');
 
             case VARIABLE_PRESENTATION_SLIDER:
                 $normalized['kind'] = 'slider';
-                $normalized['min'] = $presentation['MIN'];
-                $normalized['max'] = $presentation['MAX'];
+                $normalized['min'] = $presentation['MIN'] ?? null;
+                $normalized['max'] = $presentation['MAX'] ?? null;
                 $normalized['digits'] = $presentation['DIGITS'] ?? null;
                 return $normalized;
 
             case VARIABLE_PRESENTATION_VALUE_PRESENTATION:
                 $normalized['kind'] = 'valuePresentation';
-                $normalized['min'] = $presentation['MIN'];
-                $normalized['max'] = $presentation['MAX'];
+                $normalized['min'] = $presentation['MIN'] ?? null;
+                $normalized['max'] = $presentation['MAX'] ?? null;
                 $normalized['digits'] = $presentation['DIGITS'] ?? null;
                 return $normalized;
 
             case VARIABLE_PRESENTATION_SHUTTER:
                 $normalized['kind'] = 'shutter';
-                $normalized['min'] = $presentation['OPEN_OUTSIDE_VALUE'];
-                $normalized['max'] = $presentation['CLOSE_INSIDE_VALUE'];
+                $normalized['min'] = $presentation['OPEN_OUTSIDE_VALUE'] ?? null;
+                $normalized['max'] = $presentation['CLOSE_INSIDE_VALUE'] ?? null;
                 //A closed value below the open value is simply reversed
                 if ($normalized['min'] > $normalized['max']) {
                     $normalized['reversed'] = true;
@@ -105,7 +106,7 @@ trait HelperVariablePresentation
 
             case VARIABLE_PRESENTATION_ENUMERATION:
                 $normalized['kind'] = 'enumeration';
-                $normalized['options'] = json_decode($presentation['OPTIONS'], true);
+                $normalized['options'] = json_decode($presentation['OPTIONS'] ?? '[]', true);
                 return $normalized;
 
             default:
